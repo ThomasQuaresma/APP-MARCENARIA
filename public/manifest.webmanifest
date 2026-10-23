@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "Plano de Corte",
-  "short_name": "Corte",
+  "name": "App Marcenaria",
+  "short_name": "Marcenaria",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

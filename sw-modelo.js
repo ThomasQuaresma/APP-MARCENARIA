@@ -2,7 +2,7 @@
 // Com internet, busca sempre a versão nova; sem internet, usa a última guardada.
 // O nome do cache leva a versão do build: cada publicação gera um sw.js diferente,
 // e o navegador instala sozinho a versão nova.
-const CACHE = 'plano-de-corte-__VERSAO__';
+const CACHE = 'app-marcenaria-__VERSAO__';
 
 self.addEventListener('install', () => self.skipWaiting());
 

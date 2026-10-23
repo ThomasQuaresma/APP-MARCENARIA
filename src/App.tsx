@@ -27,7 +27,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="topo">
-        <h1>Plano de Corte</h1>
+        <h1>App Marcenaria</h1>
         {projeto.cliente && <span>{projeto.cliente}</span>}
       </header>
       <AvisoAtualizacao />

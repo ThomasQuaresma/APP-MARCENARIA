@@ -762,6 +762,61 @@ main > section {
   touch-action: none;
 }
 
+.movel .selecionado .corpo {
+  stroke: var(--marca);
+  stroke-width: 2.5;
+}
+
+/* alças para mudar o tamanho: o ponto aparece, o círculo maior é a área do dedo */
+
+.movel .alca {
+  touch-action: none;
+}
+
+.movel .alca-toque {
+  fill: transparent;
+}
+
+.movel .alca-ponto {
+  fill: #fff;
+  stroke: var(--marca);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.movel .cotas line {
+  stroke: var(--marca);
+  stroke-width: 1;
+}
+
+.movel .cotas text {
+  fill: var(--marca);
+  font-family: system-ui, sans-serif;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 4px;
+  pointer-events: none;
+}
+
+.barra-selecao {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.barra-selecao strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barra-selecao .btn {
+  padding: 8px 14px;
+}
+
 /* móvel em 3D: na tela gira com o dedo; na impressão sai a foto do ângulo escolhido */
 
 .movel-3d {

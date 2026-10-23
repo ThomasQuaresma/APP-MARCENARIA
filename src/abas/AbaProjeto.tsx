@@ -1,7 +1,7 @@
 import { useState, type Dispatch, type SetStateAction } from 'react';
 import { CampoNumero, CampoTexto, Linha, Opcoes } from '../componentes/campos';
 import { Catalogo } from '../componentes/Catalogo';
-import { DesenhoMovel } from '../componentes/DesenhoMovel';
+import { DesenhoMovel, type Mudanca } from '../componentes/DesenhoMovel';
 import { EditorModulo } from '../componentes/editores';
 import { novaParede, novoId, removerDaLista, salvarNaLista } from '../estado';
 import { descricao, medidasTexto, pecasDoModulo, retanguloNaTela, zonasDeCanto } from '../modulos';
@@ -71,8 +71,16 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
     else atualizar({ modulos: [...modulos, ...novos] });
   }
 
-  const mover = (id: string, x: number, y: number) =>
-    atualizar({ modulos: modulos.map((m) => (m.id === id ? { ...m, x, y } : m)) });
+  const mudar = (id: string, mudanca: Mudanca) =>
+    atualizar({ modulos: modulos.map((m) => (m.id === id ? { ...m, ...mudanca } : m)) });
+
+  /** A cópia entra logo à direita do original, com a mesma altura do chão. */
+  function duplicar(m: Modulo) {
+    const r = retanguloNaTela(m, materiais);
+    const copia = { ...m, id: novoId(), x: r.x + r.w };
+    atualizar({ modulos: [...modulos, copia] });
+    return copia.id;
+  }
 
   // meio milímetro de tolerância para arredondamentos
   const foraDaParede = daParede.filter((m) => {
@@ -140,8 +148,9 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
           parede={parede}
           zonas={zonas}
           unidade={u}
-          aoMover={mover}
+          aoMudar={mudar}
           aoTocar={(m) => setEdicao({ item: m, novo: false })}
+          aoDuplicar={duplicar}
         />
         {zonas.length > 0 && <p className="dica">A área hachurada é ocupada pelos móveis da parede vizinha, que entram no canto.</p>}
         {foraDaParede.length > 0 && (
@@ -154,7 +163,10 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
           </p>
         )}
         {daParede.length > 0 && (
-          <p className="dica">Arraste os módulos para montar: eles encaixam uns nos outros e nos cantos da parede. Toque para editar.</p>
+          <p className="dica">
+            Arraste os módulos para montar: eles encaixam uns nos outros e nos cantos da parede. Toque para selecionar e puxe as bolinhas
+            dos cantos para mudar o tamanho. Toque de novo para editar.
+          </p>
         )}
         <button className="btn btn-principal" onClick={() => setCatalogoAberto(true)}>
           + Adicionar módulo ou equipamento

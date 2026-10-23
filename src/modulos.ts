@@ -19,7 +19,15 @@ export function tamanhoNaTela(m: Modulo, materiais: Material[]) {
   return { w: m.largura, h: m.altura };
 }
 
-export const retanguloNaTela = (m: Modulo, materiais: Material[]): Retangulo => ({ x: m.x, y: m.y, ...tamanhoNaTela(m, materiais) });
+/** Quais medidas da tela dá para puxar: na prateleira e no tampo a altura é a espessura da chapa, na lateral a largura. */
+export function eixosAjustaveis(m: Modulo) {
+  return {
+    w: !(m.tipo === 'livre' && m.orientacao === 'lateral'),
+    h: !(m.tipo === 'prateleira' || (m.tipo === 'livre' && m.orientacao === 'deitada')),
+  };
+}
+
+export const retanguloNaTela =(m: Modulo, materiais: Material[]): Retangulo => ({ x: m.x, y: m.y, ...tamanhoNaTela(m, materiais) });
 
 /** Quanto o módulo avança a partir da parede, contando fundo sobreposto e frentes. */
 export function profundidadeTotal(m: Modulo, materiais: Material[]) {
@@ -190,6 +198,15 @@ export function moduloDoMolde(molde: Molde, nome: string, materiais: Material[])
   if (molde === 'prateleira') return { ...base, tipo: 'prateleira', profundidade: 300 };
   if (molde === 'livre') return { ...base, tipo: 'livre', largura: 600, altura: 400, profundidade: 300 };
   return base;
+}
+
+/** Puxa uma borda solta (ao mudar o tamanho) para a borda mais perto; sem nenhuma perto, arredonda no centímetro. */
+export function encaixarBorda(valor: number, alvos: number[], tolerancia: number) {
+  let guia: number | null = null;
+  for (const a of alvos) {
+    if (Math.abs(a - valor) <= tolerancia && (guia === null || Math.abs(a - valor) < Math.abs(guia - valor))) guia = a;
+  }
+  return { valor: guia ?? Math.round(valor / 10) * 10, guia };
 }
 
 /** Puxa as bordas do retângulo para as bordas dos outros módulos e para o chão. */

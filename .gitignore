@@ -1,0 +1,6 @@
+node_modules/
+dist/
+
+# anotações de validação do negócio: ficam só neste computador
+IDEIA EM VALIDAÇÃO.txt
+ETAPA 2 - *.txt

@@ -1,0 +1,11 @@
+{
+  "id": "./",
+  "name": "Plano de Corte",
+  "short_name": "Corte",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f1ea",
+  "theme_color": "#7a4b21",
+  "icons": [{ "src": "icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

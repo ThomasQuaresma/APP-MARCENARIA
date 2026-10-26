@@ -35,9 +35,16 @@ export function profundidadeTotal(m: Modulo, materiais: Material[]) {
   if (m.tipo === 'livre' && m.orientacao === 'frente') return espessuraDe(m.materialId, materiais);
   if (m.tipo !== 'caixa') return m.profundidade;
   const fundo = m.materialFundoId ? espessuraDe(m.materialFundoId, materiais) : 0;
-  const frente = m.frente !== 'nenhuma' && m.qtdFrente > 0 ? espessuraDe(m.materialFrenteId, materiais) : 0;
+  const frente =
+    m.frente === 'correr' && m.qtdFrente > 0 ? TRILHO_CORRER : m.frente !== 'nenhuma' && m.qtdFrente > 0 ? espessuraDe(m.materialFrenteId, materiais) : 0;
   return m.profundidade + fundo + frente;
 }
+
+/** Profundidade do trilho duplo de correr, preso na frente da caixa, em mm. */
+export const TRILHO_CORRER = 70;
+
+/** Largura de cada folha de correr: juntas cobrem a caixa e cada uma passa o transpasse por cima da vizinha. */
+export const larguraFolhaCorrer = (L: number, n: number, transpasse: number) => (L + (n - 1) * transpasse) / n;
 
 /**
  * Áreas da parede tomadas pelos móveis das paredes vizinhas que vão até o canto (canto cego).
@@ -133,6 +140,10 @@ export function pecasDoModulo(m: Modulo, materiais: Material[], a: Ajustes): Pec
     add('Porta', m.materialFrenteId, A - 2 * f, (L - f * (n + 1)) / n, n, 2, 2);
   }
 
+  if (m.frente === 'correr' && n > 0) {
+    add('Porta de correr', m.materialFrenteId, A - a.descontoAlturaCorrer, larguraFolhaCorrer(L, n, a.transpasseCorrer), n, 2, 2);
+  }
+
   if (m.frente === 'gavetas' && n > 0) {
     const alturaFrente = (A - f * (n + 1)) / n;
     add('Frente gaveta', m.materialFrenteId, L - 2 * f, alturaFrente, n, 2, 2);
@@ -149,7 +160,7 @@ export function pecasDoModulo(m: Modulo, materiais: Material[], a: Ajustes): Pec
   return pecas;
 }
 
-/** Ferragens e acessórios do módulo; nas gavetas, entra o kit configurado em Ajustes para cada uma. */
+/** Ferragens e acessórios do módulo; nas gavetas e nas folhas de correr, entra o kit configurado em Ajustes para cada uma. */
 export function ferragensDoModulo(m: Modulo, a: Ajustes): ItemKit[] {
   if (m.tipo !== 'caixa') return [];
   const n = m.qtdFrente;
@@ -160,6 +171,11 @@ export function ferragensDoModulo(m: Modulo, a: Ajustes): ItemKit[] {
   }
   if (n > 0 && m.frente === 'gavetas') {
     for (const k of a.kitGaveta) if (k.qtd > 0) itens.push({ ...k, qtd: k.qtd * n });
+  }
+  if (n > 0 && m.frente === 'correr') {
+    for (const k of a.kitCorrer) if (k.qtd > 0) itens.push({ ...k, qtd: k.qtd * n });
+    // o trilho vai de ponta a ponta da caixa, em cima e embaixo
+    itens.push({ nome: 'Trilho de correr (m)', qtd: Math.round(m.largura / 10) / 100, preco: a.precoTrilho });
   }
   const cabideiros = m.frente === 'gavetas' ? 0 : m.vaos.filter((v) => v.cabideiro).length;
   if (cabideiros > 0) itens.push({ nome: 'Cabideiro', qtd: cabideiros, preco: a.precoCabideiro });
@@ -237,6 +253,7 @@ function resumoInterior(m: Modulo) {
 export function descricaoFrente(m: Modulo) {
   if (m.frente === 'portas' && m.qtdFrente > 0) return m.qtdFrente === 1 ? '1 porta' : `${m.qtdFrente} portas`;
   if (m.frente === 'gavetas' && m.qtdFrente > 0) return m.qtdFrente === 1 ? '1 gaveta' : `${m.qtdFrente} gavetas`;
+  if (m.frente === 'correr' && m.qtdFrente > 0) return `${m.qtdFrente} portas de correr`;
   return 'aberto';
 }
 

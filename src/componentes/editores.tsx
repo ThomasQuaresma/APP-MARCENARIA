@@ -90,7 +90,9 @@ function PorDentro({ m, materiais, unidade: u, mudar }: PorDentroProps) {
         );
       })}
       {apertado && <p className="alerta">As medidas dos vãos passam da largura da caixa. Diminua alguma delas.</p>}
-      {m.frente === 'portas' && <p className="dica">No desenho, selecione o módulo e toque em "Abrir portas" para ver por dentro.</p>}
+      {(m.frente === 'portas' || m.frente === 'correr') && (
+        <p className="dica">No desenho, selecione o módulo e toque em "Abrir portas" para ver por dentro.</p>
+      )}
     </>
   );
 }
@@ -205,14 +207,22 @@ export function EditorModulo({
             opcoes={[
               { valor: 'nenhuma', texto: 'Nenhuma' },
               { valor: 'portas', texto: 'Portas' },
+              { valor: 'correr', texto: 'De correr' },
               { valor: 'gavetas', texto: 'Gavetas' },
             ]}
-            aoMudar={(frente) => mudar({ frente })}
+            // porta de correr precisa de pelo menos duas folhas para abrir
+            aoMudar={(frente) => mudar({ frente, qtdFrente: frente === 'correr' ? Math.max(2, m.qtdFrente) : m.qtdFrente || 2 })}
           />
+          {m.frente === 'correr' && (
+            <p className="dica">
+              As folhas correm num trilho duplo na frente da caixa e passam uma por cima da outra. Cada folha soma o kit de Ajustes → "Ao
+              colocar uma porta de correr, somar", e o trilho entra por metro.
+            </p>
+          )}
           {m.frente !== 'nenhuma' && (
             <>
               <CampoNumero
-                rotulo={m.frente === 'portas' ? 'Quantas portas' : 'Quantas gavetas'}
+                rotulo={{ portas: 'Quantas portas', correr: 'Quantas folhas', gavetas: 'Quantas gavetas' }[m.frente]}
                 valor={m.qtdFrente}
                 inteiro
                 aoMudar={(qtdFrente) => mudar({ qtdFrente })}

@@ -22,7 +22,7 @@ import {
   type Material as MaterialCena,
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { arrumacaoDoVao, espessuraDe, vaosNaCaixa } from '../modulos';
+import { arrumacaoDoVao, espessuraDe, larguraFolhaCorrer, TRILHO_CORRER, vaosNaCaixa } from '../modulos';
 import type { Modulo, Piso, Projeto } from '../types';
 import { fmtMedida } from '../unidades';
 import { coresObjeto } from './DesenhoMovel';
@@ -191,6 +191,23 @@ function montarParede(p: Projeto, modulos: Modulo[], guardar: (m: MaterialCena) 
         const py = y + f + i * (dh + f);
         peca(x + f, py, P, L - 2 * f, dh, eFrente, frente);
         peca(x + L / 2 - larguraPuxador / 2, py + dh / 2 - 6, P + eFrente, larguraPuxador, 12, 18, metal, false);
+      }
+    }
+
+    if (m.frente === 'correr' && n > 0) {
+      const t = a.transpasseCorrer;
+      const dw = larguraFolhaCorrer(L, n, t);
+      const h = A - a.descontoAlturaCorrer;
+      // trilho em cima e embaixo, na frente da caixa
+      peca(x, y + A - 15, P, L, 15, TRILHO_CORRER, metal, false);
+      peca(x, y, P, L, 10, TRILHO_CORRER, metal, false);
+      for (let i = 0; i < n; i++) {
+        // as folhas alternam entre a pista de trás e a da frente do trilho
+        const z = P + 10 + (i % 2) * (eFrente + 15);
+        const px = x + i * (dw - t);
+        peca(px, y + a.descontoAlturaCorrer / 2, z, dw, h, eFrente, frente);
+        const cx = i === 0 ? px + dw - t - 60 : px + t + 40;
+        peca(cx, y + A / 2 - 60, z + eFrente, 20, 120, 2, metal, false);
       }
     }
   }

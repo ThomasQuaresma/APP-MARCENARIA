@@ -26,7 +26,8 @@ export interface PecaBase {
   fitaL: number;
 }
 
-export type Frente = 'nenhuma' | 'portas' | 'gavetas';
+/** "correr": folhas que correm num trilho duplo na frente da caixa, sobrepostas no transpasse. */
+export type Frente = 'nenhuma' | 'portas' | 'gavetas' | 'correr';
 
 /**
  * "objeto" é um equipamento (cuba, TV…): aparece no desenho, mas não entra no corte nem no custo.
@@ -96,6 +97,14 @@ export interface Ajustes {
   kitGaveta: ItemKit[];
   /** Tubo de cabide com os dois suportes. */
   precoCabideiro: number;
+  /** O que entra no orçamento para cada folha de porta de correr (roldanas, puxador…). */
+  kitCorrer: ItemKit[];
+  /** Metro do trilho de correr, superior e inferior juntos. */
+  precoTrilho: number;
+  /** Quanto uma folha de correr passa por cima da outra, em mm. */
+  transpasseCorrer: number;
+  /** Quanto a folha de correr fica mais baixa que a caixa, para caber nos trilhos, em mm. */
+  descontoAlturaCorrer: number;
   /** Preço sugerido = custo dos materiais × fator + custos extras, mais impostos. */
   fatorVenda: number;
   /** Impostos e taxas (nota, maquininha), em % do preço de venda. */

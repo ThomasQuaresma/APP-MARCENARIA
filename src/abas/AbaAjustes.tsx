@@ -1,5 +1,6 @@
 import { CampoNumero, CampoTexto, CampoTextoLongo, Linha, Opcoes } from '../componentes/campos';
-import { extrasZerados, kitGavetaPadrao, novaParede } from '../estado';
+import type { ReactNode } from 'react';
+import { extrasZerados, kitCorrerPadrao, kitGavetaPadrao, novaParede } from '../estado';
 import type { Ajustes, ItemKit, Projeto, Unidade } from '../types';
 import { fmtReais } from '../unidades';
 
@@ -27,6 +28,66 @@ async function lerLogo(arquivo: File): Promise<string> {
   } finally {
     URL.revokeObjectURL(url);
   }
+}
+
+interface EditorKitProps {
+  titulo: string;
+  dica: string;
+  /** "gaveta", "folha": usado em "Qtd. por gaveta" e "Por gaveta: R$". */
+  unidade: string;
+  itens: ItemKit[];
+  aoMudar: (itens: ItemKit[]) => void;
+  sugestao: () => ItemKit[];
+  /** Campos a mais, logo abaixo da lista. */
+  children?: ReactNode;
+}
+
+/** Lista do que entra no orçamento para cada unidade (gaveta, folha de correr…), com uma sugestão pronta. */
+function EditorKit({ titulo, dica, unidade, itens, aoMudar, sugestao, children }: EditorKitProps) {
+  return (
+    <section className="cartao">
+      <h2>{titulo}</h2>
+      <p className="dica">{dica}</p>
+      {itens.map((item, i) => {
+        const mudarItem = (parcial: Partial<ItemKit>) => aoMudar(itens.map((x, j) => (j === i ? { ...x, ...parcial } : x)));
+        return (
+          <div key={i} className="kit-item">
+            <CampoTexto rotulo="Item" valor={item.nome} aoMudar={(nome) => mudarItem({ nome })} dica="Ex: Puxador perfil" />
+            <Linha>
+              <CampoNumero rotulo={`Qtd. por ${unidade}`} valor={item.qtd} aoMudar={(qtd) => mudarItem({ qtd })} />
+              <CampoNumero rotulo="Preço de cada" valor={item.preco} sufixo="R$" aoMudar={(preco) => mudarItem({ preco })} />
+              <button
+                type="button"
+                className="btn btn-perigo kit-remover"
+                aria-label={`Remover ${item.nome}`}
+                onClick={() => aoMudar(itens.filter((_, j) => j !== i))}
+              >
+                ×
+              </button>
+            </Linha>
+          </div>
+        );
+      })}
+      <p className="dica">
+        Por {unidade}: <strong>{fmtReais(itens.reduce((s, x) => s + x.qtd * x.preco, 0))}</strong>
+      </p>
+      <div className="kit-acoes">
+        <button type="button" className="btn" onClick={() => aoMudar([...itens, { nome: '', qtd: 1, preco: 0 }])}>
+          + Item
+        </button>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            if (confirm('Voltar para a lista sugerida? Os itens que você mudou serão trocados.')) aoMudar(sugestao());
+          }}
+        >
+          Usar a sugestão
+        </button>
+      </div>
+      {children}
+    </section>
+  );
 }
 
 export function AbaAjustes({ projeto, atualizar }: Props) {
@@ -98,51 +159,44 @@ export function AbaAjustes({ projeto, atualizar }: Props) {
         />
       </section>
 
-      <section className="cartao">
-        <h2>Ao colocar uma gaveta, somar</h2>
-        <p className="dica">Tudo o que entra no orçamento para cada gaveta. Um gaveteiro de 3 gavetas soma 3 vezes esta lista.</p>
-        {a.kitGaveta.map((item, i) => {
-          const mudarItem = (parcial: Partial<ItemKit>) =>
-            mudar({ kitGaveta: a.kitGaveta.map((x, j) => (j === i ? { ...x, ...parcial } : x)) });
-          return (
-            <div key={i} className="kit-item">
-              <CampoTexto rotulo="Item" valor={item.nome} aoMudar={(nome) => mudarItem({ nome })} dica="Ex: Corrediça oculta" />
-              <Linha>
-                <CampoNumero rotulo="Qtd. por gaveta" valor={item.qtd} aoMudar={(qtd) => mudarItem({ qtd })} />
-                <CampoNumero rotulo="Preço de cada" valor={item.preco} sufixo="R$" aoMudar={(preco) => mudarItem({ preco })} />
-                <button
-                  type="button"
-                  className="btn btn-perigo kit-remover"
-                  aria-label={`Remover ${item.nome}`}
-                  onClick={() => mudar({ kitGaveta: a.kitGaveta.filter((_, j) => j !== i) })}
-                >
-                  ×
-                </button>
-              </Linha>
-            </div>
-          );
-        })}
-        <p className="dica">
-          Por gaveta: <strong>{fmtReais(a.kitGaveta.reduce((s, x) => s + x.qtd * x.preco, 0))}</strong>
-        </p>
-        <div className="kit-acoes">
-          <button type="button" className="btn" onClick={() => mudar({ kitGaveta: [...a.kitGaveta, { nome: '', qtd: 1, preco: 0 }] })}>
-            + Item
-          </button>
-          <button
-            type="button"
-            className="btn"
-            onClick={() => {
-              if (confirm('Voltar para a lista sugerida? Os itens que você mudou serão trocados.')) {
-                const corredica = a.kitGaveta.find((x) => /corredi/i.test(x.nome))?.preco ?? 35;
-                mudar({ kitGaveta: kitGavetaPadrao(corredica, a.precoPuxador) });
-              }
-            }}
-          >
-            Usar a sugestão
-          </button>
-        </div>
-      </section>
+      <EditorKit
+        titulo="Ao colocar uma gaveta, somar"
+        dica="Tudo o que entra no orçamento para cada gaveta. Um gaveteiro de 3 gavetas soma 3 vezes esta lista."
+        unidade="gaveta"
+        itens={a.kitGaveta}
+        aoMudar={(kitGaveta) => mudar({ kitGaveta })}
+        sugestao={() => kitGavetaPadrao(a.kitGaveta.find((x) => /corredi/i.test(x.nome))?.preco ?? 35, a.precoPuxador)}
+      />
+
+      <EditorKit
+        titulo="Ao colocar uma porta de correr, somar"
+        dica="Tudo o que entra no orçamento para cada folha de correr. Um guarda-roupa de 3 folhas soma 3 vezes esta lista."
+        unidade="folha"
+        itens={a.kitCorrer}
+        aoMudar={(kitCorrer) => mudar({ kitCorrer })}
+        sugestao={kitCorrerPadrao}
+      >
+        <CampoNumero
+          rotulo="Trilho superior e inferior, por metro"
+          valor={a.precoTrilho}
+          sufixo="R$"
+          aoMudar={(precoTrilho) => mudar({ precoTrilho })}
+        />
+        <Linha>
+          <CampoNumero
+            rotulo="Transpasse entre folhas"
+            valor={a.transpasseCorrer}
+            sufixo="mm"
+            aoMudar={(transpasseCorrer) => mudar({ transpasseCorrer })}
+          />
+          <CampoNumero
+            rotulo="Folha mais baixa que a caixa"
+            valor={a.descontoAlturaCorrer}
+            sufixo="mm"
+            aoMudar={(descontoAlturaCorrer) => mudar({ descontoAlturaCorrer })}
+          />
+        </Linha>
+      </EditorKit>
 
       <section className="cartao">
         <h2>Fita de borda</h2>

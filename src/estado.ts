@@ -12,6 +12,13 @@ export const kitGavetaPadrao = (precoCorredica: number, precoPuxador: number): I
   { nome: 'Parafuso 4×40 (caixa da gaveta)', qtd: 8, preco: 0.15 },
 ];
 
+/** Sugestão do que vai em cada folha de porta de correr; o trilho é cobrado à parte, por metro. */
+export const kitCorrerPadrao = (): ItemKit[] => [
+  { nome: 'Kit roldanas de correr (par)', qtd: 1, preco: 45 },
+  { nome: 'Guia inferior', qtd: 1, preco: 8 },
+  { nome: 'Puxador concha', qtd: 1, preco: 12 },
+];
+
 export const ajustesPadrao: Ajustes = {
   unidade: 'cm',
   serra: 4,
@@ -26,6 +33,10 @@ export const ajustesPadrao: Ajustes = {
   precoPuxador: 15,
   precoCabideiro: 30,
   kitGaveta: kitGavetaPadrao(35, 15),
+  kitCorrer: kitCorrerPadrao(),
+  precoTrilho: 60,
+  transpasseCorrer: 40,
+  descontoAlturaCorrer: 50,
   fatorVenda: 2.5,
   impostos: 0,
   empresa: '',

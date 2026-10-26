@@ -276,7 +276,7 @@ export function DesenhoMovel({ modulos, materiais, parede, zonas = [], unidade: 
           <button type="button" className="btn" onClick={() => aoTocar?.(original(sel.id) ?? sel)}>
             Editar
           </button>
-          {sel.tipo === 'caixa' && sel.frente === 'portas' && sel.qtdFrente > 0 && (
+          {sel.tipo === 'caixa' && (sel.frente === 'portas' || sel.frente === 'correr') && sel.qtdFrente > 0 && (
             <button
               type="button"
               className="btn"
@@ -432,6 +432,23 @@ function Figura({ m, r, materiais, escala, aberto = false }: FiguraProps) {
       // puxador do lado que abre, perto do meio do módulo
       const px = esquerda + dw / 2 < r.x + r.w / 2 ? esquerda + dw * 0.88 : esquerda + dw * 0.12;
       detalhes.push(<line key={`p${i}`} x1={px} x2={px} y1={topo + r.h * 0.44} y2={topo + r.h * 0.56} className="puxador" />);
+    }
+  } else if (m.tipo === 'caixa' && m.frente === 'correr' && n > 0 && !aberto) {
+    fundo = cor(m.materialFrenteId);
+    const dw = r.w / n;
+    const transpasse = Math.min(20, dw / 8);
+    for (let i = 0; i < n; i++) {
+      const esquerda = r.x + i * dw;
+      // linha dupla onde uma folha passa por cima da outra
+      if (i > 0) {
+        detalhes.push(
+          <line key={`a${i}`} x1={esquerda - transpasse} x2={esquerda - transpasse} y1={topo} y2={topo + r.h} />,
+          <line key={`b${i}`} x1={esquerda + transpasse} x2={esquerda + transpasse} y1={topo} y2={topo + r.h} />,
+        );
+      }
+      // puxador concha perto da borda que encontra a vizinha
+      const cx = i === 0 ? esquerda + dw - transpasse - 50 : esquerda + transpasse + 30;
+      detalhes.push(<rect key={`c${i}`} x={cx} y={topo + r.h * 0.44} width={20} height={r.h * 0.12} rx={10} className="concha" />);
     }
   } else if (m.tipo === 'caixa' && m.frente === 'gavetas' && n > 0) {
     fundo = cor(m.materialFrenteId);

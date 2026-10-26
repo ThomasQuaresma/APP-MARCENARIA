@@ -1,8 +1,16 @@
 import { useEffect, useState } from 'react';
-import type { Ajustes, Ambiente, Extras, Material, Modulo, Parede, Projeto } from './types';
+import type { Ajustes, Ambiente, Extras, ItemKit, Material, Modulo, Parede, Projeto, Vao } from './types';
 
 const CHAVE_PROJETO = 'marcenaria:projeto:v1';
 const CHAVE_BIBLIOTECA = 'marcenaria:biblioteca:v1';
+
+/** Sugestão do que vai em cada gaveta; o marceneiro ajusta em Ajustes. */
+export const kitGavetaPadrao = (precoCorredica: number, precoPuxador: number): ItemKit[] => [
+  { nome: 'Par de corrediças telescópicas', qtd: 1, preco: precoCorredica },
+  { nome: 'Puxador', qtd: 1, preco: precoPuxador },
+  { nome: 'Parafuso 3,5×14 (corrediça)', qtd: 12, preco: 0.1 },
+  { nome: 'Parafuso 4×40 (caixa da gaveta)', qtd: 8, preco: 0.15 },
+];
 
 export const ajustesPadrao: Ajustes = {
   unidade: 'cm',
@@ -15,8 +23,9 @@ export const ajustesPadrao: Ajustes = {
   folgaCorredica: 12.5,
   recuoPrateleira: 20,
   precoDobradica: 8,
-  precoCorredica: 35,
   precoPuxador: 15,
+  precoCabideiro: 30,
+  kitGaveta: kitGavetaPadrao(35, 15),
   fatorVenda: 2.5,
   impostos: 0,
   empresa: '',
@@ -50,6 +59,24 @@ export const projetoNovo = (): Projeto => ({
   precoFinal: null,
 });
 
+export const vaoSimples = (prateleiras = 0, cabideiro = false): Vao => ({ largura: null, prateleiras, cabideiro });
+
+/** Versões anteriores guardavam só a quantidade de prateleiras, sem divisões por dentro. */
+export const migrarModulo = (m: Modulo & { prateleiras?: number }): Modulo => {
+  const { prateleiras, ...resto } = m;
+  return { ...resto, vaos: m.vaos ?? [vaoSimples(prateleiras ?? 0)] };
+};
+
+/** Antes do kit da gaveta, a corrediça tinha um preço só; ele vira o preço da corrediça no kit. */
+function migrarAjustes(salvos: (Partial<Ajustes> & { precoCorredica?: number }) | undefined): Ajustes {
+  const { precoCorredica, ...resto } = salvos ?? {};
+  return {
+    ...ajustesPadrao,
+    ...resto,
+    kitGaveta: resto.kitGaveta ?? kitGavetaPadrao(precoCorredica ?? 35, resto.precoPuxador ?? ajustesPadrao.precoPuxador),
+  };
+}
+
 /** Completa projetos salvos por versões anteriores do app. */
 function migrar(p: Partial<Projeto> & { parede?: { largura: number; altura: number } }): Projeto {
   let proximoX = 0;
@@ -59,14 +86,14 @@ function migrar(p: Partial<Projeto> & { parede?: { largura: number; altura: numb
   return {
     ...projetoNovo(),
     ...resto,
-    ajustes: { ...ajustesPadrao, ...p.ajustes },
+    ajustes: migrarAjustes(p.ajustes),
     extras: { ...extrasZerados, ...p.extras },
     ambiente: { ...ambientePadrao, ...p.ambiente },
     paredes,
     materiais: (p.materiais ?? materiaisPadrao).map((m) => ({ ...m, cor: m.cor ?? corPadrao(m.veio) })),
     modulos: (p.modulos ?? []).map((m) => {
       const novo: Modulo = {
-        ...m,
+        ...migrarModulo(m),
         tipo: m.tipo ?? 'caixa',
         orientacao: m.orientacao ?? 'frente',
         paredeId: paredes.some((x) => x.id === m.paredeId) ? m.paredeId : paredes[0].id,
@@ -103,7 +130,7 @@ export const useProjeto = () =>
 
 /** Modelos de módulos salvos pelo marceneiro, reaproveitados entre projetos. */
 export const useBiblioteca = () =>
-  useArmazenado<Modulo[]>(CHAVE_BIBLIOTECA, (salvo) => (Array.isArray(salvo) ? (salvo as Modulo[]) : []));
+  useArmazenado<Modulo[]>(CHAVE_BIBLIOTECA, (salvo) => (Array.isArray(salvo) ? (salvo as Modulo[]).map(migrarModulo) : []));
 
 export const novoId = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36);
 

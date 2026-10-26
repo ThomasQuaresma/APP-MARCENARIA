@@ -26,12 +26,6 @@ export function AbaOrcamento({ projeto, atualizar }: Props) {
   const impostos = (preco * a.impostos) / 100;
   const lucro = preco - o.custoTotal - impostos;
   const chapas = o.porMaterial.reduce((s, r) => s + r.chapas.length, 0);
-  const f = o.ferragens;
-  const ferragens = [
-    f.dobradicas > 0 && plural(f.dobradicas, 'dobradiça', 'dobradiças'),
-    f.corredicas > 0 && plural(f.corredicas, 'par de corrediças', 'pares de corrediças'),
-    f.puxadores > 0 && plural(f.puxadores, 'puxador', 'puxadores'),
-  ].filter(Boolean);
 
   return (
     <>
@@ -45,10 +39,20 @@ export function AbaOrcamento({ projeto, atualizar }: Props) {
           <span>Fita de borda ({fmtNum(o.fitaMetros)} m)</span>
           <span>{fmtReais(o.custoFita)}</span>
         </div>
-        <div className="linha-resumo">
-          <span>{ferragens.length > 0 ? ferragens.join(', ') : 'Sem ferragens'}</span>
-          <span>{fmtReais(o.custoFerragens)}</span>
-        </div>
+        {o.ferragens.length === 0 && (
+          <div className="linha-resumo">
+            <span>Sem ferragens</span>
+            <span>{fmtReais(0)}</span>
+          </div>
+        )}
+        {o.ferragens.map((f) => (
+          <div key={`${f.nome}|${f.preco}`} className="linha-resumo">
+            <span>
+              {fmtNum(f.qtd)}× {f.nome}
+            </span>
+            <span>{fmtReais(f.qtd * f.preco)}</span>
+          </div>
+        ))}
         <div className="linha-resumo total">
           <span>Total de materiais</span>
           <strong>{fmtReais(o.custoMateriais)}</strong>

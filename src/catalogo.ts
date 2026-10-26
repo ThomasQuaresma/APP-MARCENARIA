@@ -1,3 +1,4 @@
+import { vaoSimples } from './estado';
 import { moduloDoMolde, moldes, nomesObjeto } from './modulos';
 import type { Material, Modulo, TipoObjeto } from './types';
 
@@ -18,9 +19,28 @@ export interface Categoria {
   itens: ItemCatalogo[];
 }
 
-type Medidas = Partial<Modulo> & Pick<Modulo, 'nome' | 'largura' | 'altura' | 'profundidade'>;
+/** Nas caixas de um vão só, dá para informar só as prateleiras e o cabideiro. */
+type Medidas = Partial<Modulo> & Pick<Modulo, 'nome' | 'largura' | 'altura' | 'profundidade'> & { prateleiras?: number; cabideiro?: boolean };
 
-const caixa = (materiais: Material[], m: Medidas): Modulo => ({ ...moduloDoMolde('caixa', m.nome, materiais), ...m });
+const caixa = (materiais: Material[], { prateleiras, cabideiro, ...m }: Medidas): Modulo => ({
+  ...moduloDoMolde('caixa', m.nome, materiais),
+  ...(prateleiras !== undefined || cabideiro ? { vaos: [vaoSimples(prateleiras ?? 0, cabideiro)] } : {}),
+  ...m,
+});
+
+/** Colmeia: caixa aberta dividida em colunas e linhas iguais. */
+const colmeia = (materiais: Material[], colunas: number, linhas: number, m: Medidas): Modulo =>
+  caixa(materiais, { ...m, frente: 'nenhuma', qtdFrente: 0, vaos: Array.from({ length: colunas }, () => vaoSimples(linhas - 1)) });
+
+/** Prateleiras de parede já espaçadas; dx desloca cada uma para o lado (escalonada). */
+const prateleiras = (materiais: Material[], qtd: number, largura: number, y0: number, dy: number, dx = 0): Modulo[] =>
+  Array.from({ length: qtd }, (_, i) => ({
+    ...moduloDoMolde('prateleira', `Prateleira ${i + 1}`, materiais),
+    largura,
+    profundidade: 250,
+    x: i * dx,
+    y: y0 + i * dy,
+  }));
 
 /** Chapa com veio (amadeirada) para frentes de destaque; sem ela, usa a chapa do corpo. */
 const madeira = (materiais: Material[]) => {
@@ -66,7 +86,7 @@ export const objeto = (materiais: Material[], tipo: TipoObjeto, extra: Partial<M
   y: alturaObjeto[tipo],
   frente: 'nenhuma',
   qtdFrente: 0,
-  prateleiras: 0,
+  vaos: [],
   materialFundoId: null,
   ...extra,
 });
@@ -137,12 +157,32 @@ export const catalogo: Categoria[] = [
     id: 'dormitorio',
     nome: 'Dormitório',
     itens: [
+      um('gr-modulo-portas', 'Módulo guarda-roupa com portas', '🚪', {
+        nome: 'Guarda-roupa',
+        largura: 900,
+        altura: 2300,
+        profundidade: 580,
+        frente: 'portas',
+        qtdFrente: 2,
+        prateleiras: 1,
+        cabideiro: true,
+      }),
+      um('gr-modulo-correr', 'Módulo guarda-roupa sem portas (para porta de correr)', '↔️', {
+        nome: 'Guarda-roupa',
+        largura: 900,
+        altura: 2300,
+        profundidade: 580,
+        frente: 'nenhuma',
+        qtdFrente: 0,
+        prateleiras: 1,
+        cabideiro: true,
+      }),
       {
         id: 'gr2',
         nome: 'Guarda-roupa 2 portas',
         icone: '👔',
         criar: (mt) => [
-          caixa(mt, { nome: 'Guarda-roupa', largura: 1000, altura: 2200, profundidade: 600, frente: 'portas', qtdFrente: 2, prateleiras: 2, ...madeira(mt) }),
+          caixa(mt, { nome: 'Guarda-roupa', largura: 1000, altura: 2200, profundidade: 600, frente: 'portas', qtdFrente: 2, prateleiras: 1, cabideiro: true, ...madeira(mt) }),
           caixa(mt, { nome: 'Maleiro', y: 2200, largura: 1000, altura: 400, profundidade: 600, frente: 'portas', qtdFrente: 2, prateleiras: 0, ...madeira(mt) }),
         ],
       },
@@ -151,7 +191,17 @@ export const catalogo: Categoria[] = [
         nome: 'Guarda-roupa 3 portas',
         icone: '👗',
         criar: (mt) => [
-          caixa(mt, { nome: 'Guarda-roupa', largura: 1500, altura: 2200, profundidade: 600, frente: 'portas', qtdFrente: 3, prateleiras: 2, ...madeira(mt) }),
+          // um vão de cabide e um de prateleiras, com divisória entre eles
+          caixa(mt, {
+            nome: 'Guarda-roupa',
+            largura: 1500,
+            altura: 2200,
+            profundidade: 600,
+            frente: 'portas',
+            qtdFrente: 3,
+            vaos: [{ largura: 480, prateleiras: 4, cabideiro: false }, vaoSimples(1, true)],
+            ...madeira(mt),
+          }),
           caixa(mt, { nome: 'Maleiro', y: 2200, largura: 1500, altura: 400, profundidade: 600, frente: 'portas', qtdFrente: 3, prateleiras: 0, ...madeira(mt) }),
         ],
       },
@@ -160,7 +210,7 @@ export const catalogo: Categoria[] = [
         nome: 'Guarda-roupa 4 portas com gavetas',
         icone: '🧥',
         criar: (mt) => [
-          caixa(mt, { nome: 'Guarda-roupa', largura: 1000, altura: 2200, profundidade: 600, frente: 'portas', qtdFrente: 2, prateleiras: 2, ...madeira(mt) }),
+          caixa(mt, { nome: 'Guarda-roupa', largura: 1000, altura: 2200, profundidade: 600, frente: 'portas', qtdFrente: 2, prateleiras: 1, cabideiro: true, ...madeira(mt) }),
           caixa(mt, { nome: 'Gaveteiro', x: 1000, largura: 1000, altura: 800, profundidade: 600, frente: 'gavetas', qtdFrente: 3, prateleiras: 0, ...madeira(mt) }),
           caixa(mt, { nome: 'Guarda-roupa sobre gavetas', x: 1000, y: 800, largura: 1000, altura: 1400, profundidade: 600, frente: 'portas', qtdFrente: 2, prateleiras: 1, ...madeira(mt) }),
           caixa(mt, { nome: 'Maleiro', y: 2200, largura: 2000, altura: 400, profundidade: 600, frente: 'portas', qtdFrente: 4, prateleiras: 0, ...madeira(mt) }),
@@ -168,6 +218,18 @@ export const catalogo: Categoria[] = [
       },
       um('comoda', 'Cômoda', '🛏️', { nome: 'Cômoda', largura: 1000, altura: 850, profundidade: 450, frente: 'gavetas', qtdFrente: 4, prateleiras: 0 }),
       um('criado', 'Criado-mudo', '🕯️', { nome: 'Criado-mudo', largura: 450, altura: 500, profundidade: 400, frente: 'gavetas', qtdFrente: 2, prateleiras: 0 }),
+    ],
+  },
+  {
+    id: 'prateleiras',
+    nome: 'Prateleiras e colmeias',
+    itens: [
+      { id: 'prat-3', nome: '3 prateleiras de parede', icone: '📚', criar: (mt) => prateleiras(mt, 3, 800, 1200, 300) },
+      { id: 'prat-escada', nome: 'Prateleiras escalonadas', icone: '🪜', criar: (mt) => prateleiras(mt, 3, 600, 1200, 250, 300) },
+      { id: 'colmeia-3x3', nome: 'Colmeia 3 × 3', icone: '🐝', criar: (mt) => [colmeia(mt, 3, 3, { nome: 'Colmeia', y: 1200, largura: 900, altura: 900, profundidade: 300 })] },
+      { id: 'colmeia-2x3', nome: 'Colmeia 2 × 3', icone: '🔲', criar: (mt) => [colmeia(mt, 2, 3, { nome: 'Colmeia', y: 1200, largura: 600, altura: 900, profundidade: 300 })] },
+      { id: 'colmeia-4x2', nome: 'Colmeia 4 × 2', icone: '🧱', criar: (mt) => [colmeia(mt, 4, 2, { nome: 'Colmeia', largura: 1200, altura: 600, profundidade: 350 })] },
+      um('nicho', 'Nicho', '⬜', { nome: 'Nicho', y: 1400, largura: 400, altura: 400, profundidade: 300, frente: 'nenhuma', qtdFrente: 0, prateleiras: 0 }),
     ],
   },
   {

@@ -1,6 +1,6 @@
 import type { Retangulo } from './corte';
-import { novoId } from './estado';
-import type { Ajustes, Material, Modulo, PecaBase, Projeto, TipoObjeto, Unidade } from './types';
+import { novoId, vaoSimples } from './estado';
+import type { Ajustes, ItemKit, Material, Modulo, PecaBase, Projeto, TipoObjeto, Unidade, Vao } from './types';
 import { fmtMedida } from './unidades';
 
 const arred = (n: number) => Math.round(n * 10) / 10;
@@ -95,6 +95,20 @@ export function pecasDoModulo(m: Modulo, materiais: Material[], a: Ajustes): Pec
     return pecas;
   }
 
+  if (m.tipo === 'base') {
+    // só o quadro: frente e trás inteiras, travessas entre elas
+    add('Base frente/trás', m.materialId, L, A, 2, 1);
+    add('Base travessa', m.materialId, P - 2 * e, A, 2);
+    return pecas;
+  }
+
+  if (m.tipo === 'envelope') {
+    // as laterais passam, o tampo fica entre elas
+    add('Lateral envelope', m.materialId, A, P, 2, 1);
+    add('Tampo envelope', m.materialId, vao, P, 1, 1);
+    return pecas;
+  }
+
   if (m.tipo === 'livre') {
     if (m.orientacao === 'frente') add(m.nome, m.materialId, A, L, 1, 2, 2);
     if (m.orientacao === 'deitada') add(m.nome, m.materialId, L, P, 1, 1);
@@ -105,7 +119,15 @@ export function pecasDoModulo(m: Modulo, materiais: Material[], a: Ajustes): Pec
   add('Lateral', m.materialId, A, P, 2, 1);
   add('Base/Tampo', m.materialId, vao, P, 2, 1);
   if (m.materialFundoId) add('Fundo', m.materialFundoId, A - 4, L - 4, 1);
-  add('Prateleira', m.materialId, vao - 2, P - a.recuoPrateleira, m.prateleiras, 1);
+  // com gavetas, a caixa não tem divisão por dentro
+  if (m.frente !== 'gavetas') {
+    const vaos = vaosNaCaixa(m, materiais);
+    add('Divisória', m.materialId, A - 2 * e, P, vaos.length - 1, 1);
+    // prateleiras da mesma largura saem numa linha só
+    const porLargura = new Map<number, number>();
+    for (const v of vaos) porLargura.set(arred(v.w), (porLargura.get(arred(v.w)) ?? 0) + v.vao.prateleiras);
+    for (const [w, qtd] of porLargura) add('Prateleira', m.materialId, w - 2, P - a.recuoPrateleira, qtd, 1);
+  }
 
   if (m.frente === 'portas' && n > 0) {
     add('Porta', m.materialFrenteId, A - 2 * f, (L - f * (n + 1)) / n, n, 2, 2);
@@ -127,14 +149,89 @@ export function pecasDoModulo(m: Modulo, materiais: Material[], a: Ajustes): Pec
   return pecas;
 }
 
-export function ferragensDoModulo(m: Modulo) {
-  const n = m.tipo === 'caixa' ? m.qtdFrente : 0;
+/** Ferragens e acessórios do módulo; nas gavetas, entra o kit configurado em Ajustes para cada uma. */
+export function ferragensDoModulo(m: Modulo, a: Ajustes): ItemKit[] {
+  if (m.tipo !== 'caixa') return [];
+  const n = m.qtdFrente;
+  const itens: ItemKit[] = [];
   if (n > 0 && m.frente === 'portas') {
     const porPorta = m.altura <= 900 ? 2 : m.altura <= 1600 ? 3 : 4;
-    return { dobradicas: porPorta * n, corredicas: 0, puxadores: n };
+    itens.push({ nome: 'Dobradiça', qtd: porPorta * n, preco: a.precoDobradica }, { nome: 'Puxador', qtd: n, preco: a.precoPuxador });
   }
-  if (n > 0 && m.frente === 'gavetas') return { dobradicas: 0, corredicas: n, puxadores: n };
-  return { dobradicas: 0, corredicas: 0, puxadores: 0 };
+  if (n > 0 && m.frente === 'gavetas') {
+    for (const k of a.kitGaveta) if (k.qtd > 0) itens.push({ ...k, qtd: k.qtd * n });
+  }
+  const cabideiros = m.frente === 'gavetas' ? 0 : m.vaos.filter((v) => v.cabideiro).length;
+  if (cabideiros > 0) itens.push({ nome: 'Cabideiro', qtd: cabideiros, preco: a.precoCabideiro });
+  return itens;
+}
+
+/** Junta os itens de mesmo nome e preço, somando as quantidades. */
+export function somarItens(itens: ItemKit[]): ItemKit[] {
+  const juntos = new Map<string, ItemKit>();
+  for (const i of itens) {
+    const chave = `${i.nome}|${i.preco}`;
+    const ja = juntos.get(chave);
+    juntos.set(chave, ja ? { ...ja, qtd: ja.qtd + i.qtd } : { ...i });
+  }
+  return [...juntos.values()];
+}
+
+/** Vãos da caixa lado a lado, com x a partir da borda esquerda do módulo. */
+export function vaosNaCaixa(m: Modulo, materiais: Material[]) {
+  const e = espessuraDe(m.materialId, materiais);
+  const vaos = m.vaos.length ? m.vaos : [vaoSimples()];
+  // sem nenhum vão automático, o último fica com o que sobrar
+  const temAuto = vaos.some((v) => v.largura === null);
+  const auto = vaos.map((v, i) => v.largura === null || (!temAuto && i === vaos.length - 1));
+  const livre = m.largura - 2 * e - (vaos.length - 1) * e;
+  const fixos = vaos.reduce((s, v, i) => s + (auto[i] ? 0 : (v.largura ?? 0)), 0);
+  const resto = Math.max(0, (livre - fixos) / auto.filter(Boolean).length);
+  let x = e;
+  return vaos.map((vao, i) => {
+    const w = auto[i] ? resto : (vao.largura ?? 0);
+    const r = { x, w, vao, auto: auto[i] };
+    x += w + e;
+    return r;
+  });
+}
+
+/**
+ * Altura da base de cada prateleira e do cabideiro, a partir do chão do módulo.
+ * Sem cabideiro, as prateleiras se espalham igualmente; com cabideiro, ficam no alto,
+ * de 30 em 30 cm, e o cabide logo abaixo da última.
+ */
+export function arrumacaoDoVao(v: Vao, A: number, e: number) {
+  const vao = A - 2 * e;
+  if (!v.cabideiro) {
+    return { prateleiras: Array.from({ length: v.prateleiras }, (_, k) => e + ((k + 1) * vao) / (v.prateleiras + 1) - e / 2), cabideiro: null };
+  }
+  const espaco = Math.min(300, vao / (v.prateleiras + 2));
+  const prateleiras = Array.from({ length: v.prateleiras }, (_, k) => A - e - (k + 1) * espaco);
+  const teto = prateleiras.length ? prateleiras[prateleiras.length - 1] : A - e;
+  return { prateleiras, cabideiro: teto - 60 };
+}
+
+/** Bordas em que os outros módulos encaixam; no envelope, também o vão de dentro. */
+export function retangulosDeEncaixe(m: Modulo, materiais: Material[]): Retangulo[] {
+  const r = retanguloNaTela(m, materiais);
+  if (m.tipo !== 'envelope') return [r];
+  const e = espessuraDe(m.materialId, materiais);
+  return [r, { x: r.x + e, y: r.y, w: r.w - 2 * e, h: r.h - e }];
+}
+
+function resumoInterior(m: Modulo) {
+  if (m.frente === 'gavetas') return '';
+  const prat = m.vaos.reduce((s, v) => s + v.prateleiras, 0);
+  const cab = m.vaos.filter((v) => v.cabideiro).length;
+  return [
+    m.vaos.length > 1 && `${m.vaos.length} vãos`,
+    prat > 0 && `${prat} prateleira${prat > 1 ? 's' : ''}`,
+    cab > 0 && (cab > 1 ? `${cab} cabideiros` : 'cabideiro'),
+  ]
+    .filter(Boolean)
+    .map((t) => ` · ${t}`)
+    .join('');
 }
 
 export function descricaoFrente(m: Modulo) {
@@ -148,8 +245,9 @@ export function descricao(m: Modulo, materiais: Material[]) {
   const material = materiais.find((x) => x.id === m.materialId)?.nome ?? 'chapa removida';
   if (m.tipo === 'prateleira') return `Prateleira de parede · ${material}`;
   if (m.tipo === 'livre') return `${{ frente: 'Painel', deitada: 'Tampo', lateral: 'Lateral' }[m.orientacao]} · ${material}`;
-  const prat = m.prateleiras > 0 ? ` · ${m.prateleiras} prateleira${m.prateleiras > 1 ? 's' : ''}` : '';
-  return `${material} · ${descricaoFrente(m)}${prat}`;
+  if (m.tipo === 'base') return `Base (rodapé) · ${material}`;
+  if (m.tipo === 'envelope') return `Envelope (tamponamento) · ${material}`;
+  return `${material} · ${descricaoFrente(m)}${resumoInterior(m)}`;
 }
 
 /** Medidas que interessam a cada tipo, no formato "80 × 70 × 55 cm". */
@@ -164,19 +262,21 @@ export function medidasTexto(m: Modulo, u: Unidade) {
   return `${f(m.largura)} × ${f(m.altura)} × ${f(m.profundidade)} ${u}`;
 }
 
-export type Molde = 'caixa' | 'gaveteiro' | 'prateleira' | 'livre';
+export type Molde = 'caixa' | 'gaveteiro' | 'prateleira' | 'livre' | 'base' | 'envelope';
 
 export const moldes: { id: Molde; nome: string; icone: string }[] = [
   { id: 'caixa', nome: 'Caixa', icone: '🗄️' },
   { id: 'gaveteiro', nome: 'Gaveteiro', icone: '🧰' },
   { id: 'prateleira', nome: 'Prateleira de parede', icone: '➖' },
   { id: 'livre', nome: 'Peça livre', icone: '▭' },
+  { id: 'base', nome: 'Base (rodapé)', icone: '▁' },
+  { id: 'envelope', nome: 'Envelope (tamponamento)', icone: '⊓' },
 ];
 
 export function moduloDoMolde(molde: Molde, nome: string, materiais: Material[]): Modulo {
   const corpo = materiais.find((m) => m.espessura >= 15) ?? materiais[0];
   const fundo = materiais.find((m) => m.espessura <= 6);
-  const base: Modulo = {
+  const padrao: Modulo = {
     id: novoId(),
     nome,
     tipo: 'caixa',
@@ -189,15 +289,19 @@ export function moduloDoMolde(molde: Molde, nome: string, materiais: Material[])
     materialId: corpo.id,
     materialFundoId: fundo?.id ?? null,
     materialFrenteId: corpo.id,
-    prateleiras: 1,
+    vaos: [vaoSimples(1)],
     frente: 'portas',
     qtdFrente: 2,
     orientacao: 'frente',
   };
-  if (molde === 'gaveteiro') return { ...base, largura: 500, prateleiras: 0, frente: 'gavetas', qtdFrente: 3 };
-  if (molde === 'prateleira') return { ...base, tipo: 'prateleira', profundidade: 300 };
-  if (molde === 'livre') return { ...base, tipo: 'livre', largura: 600, altura: 400, profundidade: 300 };
-  return base;
+  const semFrente = { frente: 'nenhuma' as const, qtdFrente: 0, vaos: [], materialFundoId: null };
+  if (molde === 'gaveteiro') return { ...padrao, largura: 500, vaos: [vaoSimples()], frente: 'gavetas', qtdFrente: 3 };
+  if (molde === 'prateleira') return { ...padrao, tipo: 'prateleira', profundidade: 300 };
+  if (molde === 'livre') return { ...padrao, tipo: 'livre', largura: 600, altura: 400, profundidade: 300 };
+  // a base costuma ter de 10 a 15 cm e fica um pouco recuada da frente dos módulos
+  if (molde === 'base') return { ...padrao, ...semFrente, tipo: 'base', largura: 1000, altura: 120, profundidade: 500 };
+  if (molde === 'envelope') return { ...padrao, ...semFrente, tipo: 'envelope', largura: 1036, altura: 2418, profundidade: 600 };
+  return padrao;
 }
 
 /** Puxa uma borda solta (ao mudar o tamanho) para a borda mais perto; sem nenhuma perto, arredonda no centímetro. */

@@ -1,6 +1,15 @@
 import { useEffect, useId, useRef, useState, type PointerEvent as EventoPonteiro, type ReactNode } from 'react';
 import type { Retangulo } from '../corte';
-import { eixosAjustaveis, encaixar, encaixarBorda, espessuraDe, retanguloNaTela } from '../modulos';
+import {
+  arrumacaoDoVao,
+  eixosAjustaveis,
+  encaixar,
+  encaixarBorda,
+  espessuraDe,
+  retangulosDeEncaixe,
+  retanguloNaTela,
+  vaosNaCaixa,
+} from '../modulos';
 import type { Material, Modulo, Parede, TipoObjeto, Unidade } from '../types';
 import { fmtMedida } from '../unidades';
 
@@ -84,6 +93,8 @@ export function DesenhoMovel({ modulos, materiais, parede, zonas = [], unidade: 
   const idHachura = `hachura-${useId().replace(/:/g, '')}`;
   const [arraste, setArraste] = useState<Arraste | null>(null);
   const [selecionado, setSelecionado] = useState<string | null>(null);
+  /** Módulos com as portas abertas no desenho. */
+  const [abertos, setAbertos] = useState<string[]>([]);
   const editavel = !!aoMudar;
 
   // no celular, o toque num módulo ou numa alça não pode rolar a página, senão o navegador cancela o arraste
@@ -153,7 +164,7 @@ export function DesenhoMovel({ modulos, materiais, parede, zonas = [], unidade: 
     const o = arraste.original;
     const tolerancia = escala / 30;
     // encaixa também nos cantos e no teto da parede, e nos móveis que vêm da parede vizinha
-    const outros = [retParede, ...zonas, ...modulos.filter((x) => x.id !== m.id).map((x) => retanguloNaTela(x, materiais))];
+    const outros = [retParede, ...zonas, ...modulos.filter((x) => x.id !== m.id).flatMap((x) => retangulosDeEncaixe(x, materiais))];
 
     if (!arraste.canto) {
       const encaixe = encaixar({ ...o, x: o.x + dx, y: o.y + dy }, outros, tolerancia);
@@ -232,7 +243,7 @@ export function DesenhoMovel({ modulos, materiais, parede, zonas = [], unidade: 
             onPointerDown={(e) => iniciar(e, m, null)}
             onClick={!editavel && aoTocar ? () => aoTocar(m) : undefined}
           >
-            <Figura m={m} r={rets[i]} materiais={materiais} escala={escala} />
+            <Figura m={m} r={rets[i]} materiais={materiais} escala={escala} aberto={abertos.includes(m.id)} />
           </g>
         ))}
         {arraste?.moveu && arraste.guias.x !== null && (
@@ -265,6 +276,15 @@ export function DesenhoMovel({ modulos, materiais, parede, zonas = [], unidade: 
           <button type="button" className="btn" onClick={() => aoTocar?.(original(sel.id) ?? sel)}>
             Editar
           </button>
+          {sel.tipo === 'caixa' && sel.frente === 'portas' && sel.qtdFrente > 0 && (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setAbertos((l) => (l.includes(sel.id) ? l.filter((x) => x !== sel.id) : [...l, sel.id]))}
+            >
+              {abertos.includes(sel.id) ? 'Fechar portas' : 'Abrir portas'}
+            </button>
+          )}
           {aoDuplicar && (
             <button type="button" className="btn" onClick={() => setSelecionado(aoDuplicar(original(sel.id) ?? sel))}>
               Duplicar
@@ -276,6 +296,20 @@ export function DesenhoMovel({ modulos, materiais, parede, zonas = [], unidade: 
         Parede {fmtMedida(parede.largura, u)} × {fmtMedida(parede.altura, u)} {u}
         {rets.length > 0 && ` · Móvel ${fmtMedida(larguraTotal, u)} × ${fmtMedida(alturaTotal, u)} ${u}`}
       </figcaption>
+    </figure>
+  );
+}
+
+/** Um módulo sozinho, com as portas abertas, para ver por dentro enquanto edita. */
+export function PreviaModulo({ m, materiais }: { m: Modulo; materiais: Material[] }) {
+  const r = { ...retanguloNaTela(m, materiais), x: 0, y: 0 };
+  const folga = Math.max(r.w, r.h) * 0.04;
+  const escala = Math.max(r.w, r.h) + 2 * folga;
+  return (
+    <figure className="movel previa">
+      <svg viewBox={`${-folga} ${-(r.h + folga)} ${r.w + 2 * folga} ${r.h + 2 * folga}`} role="img" aria-label="Módulo por dentro">
+        <Figura m={{ ...m, nome: '' }} r={r} materiais={materiais} escala={escala} aberto />
+      </svg>
     </figure>
   );
 }
@@ -329,6 +363,8 @@ interface FiguraProps {
   r: Retangulo;
   materiais: Material[];
   escala: number;
+  /** Portas abertas: mostra o que tem dentro. */
+  aberto?: boolean;
 }
 
 export const coresObjeto: Record<TipoObjeto, string> = {
@@ -343,7 +379,7 @@ export const coresObjeto: Record<TipoObjeto, string> = {
 };
 
 /** Desenha um módulo visto de frente: portas, gavetas ou o vão com prateleiras. */
-function Figura({ m, r, materiais, escala }: FiguraProps) {
+function Figura({ m, r, materiais, escala, aberto = false }: FiguraProps) {
   const cor = (id: string | null) => materiais.find((x) => x.id === id)?.cor ?? '#eee';
   const topo = -(r.y + r.h);
   const n = m.qtdFrente;
@@ -378,7 +414,16 @@ function Figura({ m, r, materiais, escala }: FiguraProps) {
       const vidroW = m.objeto === 'micro' ? r.w * 0.68 : r.w * 0.84;
       detalhes.push(<rect key="vidro" x={r.x + r.w * 0.08} y={vidroAlto} width={vidroW} height={r.h * 0.5} className="vidro" />);
     }
-  } else if (m.tipo === 'caixa' && m.frente === 'portas' && n > 0) {
+  } else if (m.tipo === 'envelope') {
+    // só as laterais e o tampo aparecem; o vão de dentro fica livre para os módulos
+    const e = espessuraDe(m.materialId, materiais);
+    fundo = 'none';
+    detalhes.push(
+      <rect key="le" x={r.x} y={topo} width={e} height={r.h} fill={cor(m.materialId)} />,
+      <rect key="ld" x={r.x + r.w - e} y={topo} width={e} height={r.h} fill={cor(m.materialId)} />,
+      <rect key="tampo" x={r.x + e} y={topo} width={Math.max(0, r.w - 2 * e)} height={e} fill={cor(m.materialId)} />,
+    );
+  } else if (m.tipo === 'caixa' && m.frente === 'portas' && n > 0 && !aberto) {
     fundo = cor(m.materialFrenteId);
     const dw = r.w / n;
     for (let i = 0; i < n; i++) {
@@ -387,12 +432,6 @@ function Figura({ m, r, materiais, escala }: FiguraProps) {
       // puxador do lado que abre, perto do meio do módulo
       const px = esquerda + dw / 2 < r.x + r.w / 2 ? esquerda + dw * 0.88 : esquerda + dw * 0.12;
       detalhes.push(<line key={`p${i}`} x1={px} x2={px} y1={topo + r.h * 0.44} y2={topo + r.h * 0.56} className="puxador" />);
-    }
-    // prateleiras internas, atrás das portas: tracejadas, como num raio-x
-    const e = espessuraDe(m.materialId, materiais);
-    for (let k = 1; k <= m.prateleiras; k++) {
-      const y = topo + e + (k * (r.h - 2 * e)) / (m.prateleiras + 1);
-      detalhes.push(<line key={`o${k}`} x1={r.x + e} x2={r.x + r.w - e} y1={y} y2={y} className="oculta" />);
     }
   } else if (m.tipo === 'caixa' && m.frente === 'gavetas' && n > 0) {
     fundo = cor(m.materialFrenteId);
@@ -404,30 +443,76 @@ function Figura({ m, r, materiais, escala }: FiguraProps) {
       detalhes.push(<line key={`p${i}`} x1={r.x + r.w * 0.38} x2={r.x + r.w * 0.62} y1={py} y2={py} className="puxador" />);
     }
   } else if (m.tipo === 'caixa') {
-    const e = espessuraDe(m.materialId, materiais);
-    detalhes.push(<rect key="vao" x={r.x + e} y={topo + e} width={Math.max(0, r.w - 2 * e)} height={Math.max(0, r.h - 2 * e)} className="vao" />);
-    for (let k = 1; k <= m.prateleiras; k++) {
-      const y = topo + e + (k * (r.h - 2 * e)) / (m.prateleiras + 1);
-      detalhes.push(<line key={`s${k}`} x1={r.x + e} x2={r.x + r.w - e} y1={y} y2={y} />);
-    }
+    // sem frente, ou com as portas abertas: mostra o que tem dentro
+    detalhes.push(<Interior key="interior" m={m} r={r} materiais={materiais} />);
   }
 
-  // equipamentos baixos (bancada, cooktop, cuba) ficam sem nome, para não poluir
-  const semNome = m.objeto === 'bancada' || m.objeto === 'cooktop' || m.objeto === 'cuba';
+  // equipamentos baixos (bancada, cooktop, cuba) ficam sem nome, para não poluir; o envelope tem módulos dentro
+  const semNome = m.objeto === 'bancada' || m.objeto === 'cooktop' || m.objeto === 'cuba' || m.tipo === 'envelope';
   const fonte = semNome ? 0 : Math.min(escala / 26, r.w / (m.nome.length * 0.6 + 1), r.h * 0.45);
-  // com portas ou gavetas, o nome sobe para não ficar em cima do puxador
-  const temFrente = m.tipo === 'caixa' && m.frente !== 'nenhuma' && n > 0;
-  const yNome = temFrente ? topo + Math.max(fonte * 0.9, r.h * 0.16) : topo + r.h / 2;
+  // com frente ou com prateleiras à mostra, o nome sobe para não ficar em cima do puxador nem das prateleiras
+  const nomeEmCima = m.tipo === 'caixa' && ((m.frente !== 'nenhuma' && n > 0) || m.vaos.some((v) => v.prateleiras > 0 || v.cabideiro));
+  const yNome = nomeEmCima ? topo + Math.max(fonte * 0.9, r.h * 0.16) : topo + r.h / 2;
 
   return (
     <>
-      <rect x={r.x} y={topo} width={r.w} height={r.h} fill={fundo} className={m.objeto === 'cuba' ? 'corpo sem-borda' : 'corpo'} />
+      <rect
+        x={r.x}
+        y={topo}
+        width={r.w}
+        height={r.h}
+        fill={fundo}
+        className={m.objeto === 'cuba' || m.tipo === 'envelope' ? 'corpo sem-borda' : 'corpo'}
+      />
       {detalhes}
       {fonte > escala / 55 && (
         <text x={r.x + r.w / 2} y={yNome} fontSize={fonte} textAnchor="middle" dominantBaseline="central" className="nome">
           {m.nome}
         </text>
       )}
+    </>
+  );
+}
+
+/** Por dentro da caixa: vãos, divisórias, prateleiras e cabideiro. */
+function Interior({ m, r, materiais }: { m: Modulo; r: Retangulo; materiais: Material[] }) {
+  const e = espessuraDe(m.materialId, materiais);
+  const corpo = materiais.find((x) => x.id === m.materialId)?.cor ?? '#eee';
+  const topo = -(r.y + r.h);
+  /** Altura a partir do chão do módulo, no eixo do SVG. */
+  const naTela = (y: number) => -(r.y + y);
+  const alturaVao = Math.max(0, r.h - 2 * e);
+  return (
+    <>
+      {vaosNaCaixa(m, materiais).map((v, i) => {
+        const { prateleiras, cabideiro } = arrumacaoDoVao(v.vao, r.h, e);
+        const x = r.x + v.x;
+        return (
+          <g key={i}>
+            <rect x={x} y={topo + e} width={Math.max(0, v.w)} height={alturaVao} className="vao" />
+            {i > 0 && <rect x={x - e} y={topo + e} width={e} height={alturaVao} fill={corpo} />}
+            {prateleiras.map((y, k) => (
+              <rect key={k} x={x} y={naTela(y + e)} width={Math.max(0, v.w)} height={e} fill={corpo} />
+            ))}
+            {cabideiro !== null && <Cabide x={x} w={v.w} y={naTela(cabideiro)} />}
+          </g>
+        );
+      })}
+    </>
+  );
+}
+
+/** Tubo do cabideiro com alguns cabides pendurados. */
+function Cabide({ x, w, y }: { x: number; w: number; y: number }) {
+  const meia = Math.min(w / 9, 70);
+  const qtd = w > 350 ? 3 : w > 180 ? 1 : 0;
+  return (
+    <>
+      <line x1={x + 15} x2={x + w - 15} y1={y} y2={y} className="cabide" />
+      {Array.from({ length: qtd }, (_, k) => {
+        const cx = x + (w * (k + 1)) / (qtd + 1);
+        return <path key={k} d={`M ${cx} ${y} L ${cx - meia} ${y + meia * 0.7} L ${cx + meia} ${y + meia * 0.7} Z`} className="cabide-gancho" />;
+      })}
     </>
   );
 }

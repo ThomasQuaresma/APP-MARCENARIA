@@ -1,6 +1,7 @@
 import { CampoNumero, CampoTexto, CampoTextoLongo, Linha, Opcoes } from '../componentes/campos';
-import { extrasZerados, novaParede } from '../estado';
-import type { Ajustes, Projeto, Unidade } from '../types';
+import { extrasZerados, kitGavetaPadrao, novaParede } from '../estado';
+import type { Ajustes, ItemKit, Projeto, Unidade } from '../types';
+import { fmtReais } from '../unidades';
 
 interface Props {
   projeto: Projeto;
@@ -87,9 +88,60 @@ export function AbaAjustes({ projeto, atualizar }: Props) {
         <h2>Ferragens</h2>
         <Linha>
           <CampoNumero rotulo="Dobradiça" valor={a.precoDobradica} sufixo="R$" aoMudar={(precoDobradica) => mudar({ precoDobradica })} />
-          <CampoNumero rotulo="Corrediça (par)" valor={a.precoCorredica} sufixo="R$" aoMudar={(precoCorredica) => mudar({ precoCorredica })} />
+          <CampoNumero rotulo="Puxador da porta" valor={a.precoPuxador} sufixo="R$" aoMudar={(precoPuxador) => mudar({ precoPuxador })} />
         </Linha>
-        <CampoNumero rotulo="Puxador" valor={a.precoPuxador} sufixo="R$" aoMudar={(precoPuxador) => mudar({ precoPuxador })} />
+        <CampoNumero
+          rotulo="Cabideiro (tubo e suportes)"
+          valor={a.precoCabideiro}
+          sufixo="R$"
+          aoMudar={(precoCabideiro) => mudar({ precoCabideiro })}
+        />
+      </section>
+
+      <section className="cartao">
+        <h2>Ao colocar uma gaveta, somar</h2>
+        <p className="dica">Tudo o que entra no orçamento para cada gaveta. Um gaveteiro de 3 gavetas soma 3 vezes esta lista.</p>
+        {a.kitGaveta.map((item, i) => {
+          const mudarItem = (parcial: Partial<ItemKit>) =>
+            mudar({ kitGaveta: a.kitGaveta.map((x, j) => (j === i ? { ...x, ...parcial } : x)) });
+          return (
+            <div key={i} className="kit-item">
+              <CampoTexto rotulo="Item" valor={item.nome} aoMudar={(nome) => mudarItem({ nome })} dica="Ex: Corrediça oculta" />
+              <Linha>
+                <CampoNumero rotulo="Qtd. por gaveta" valor={item.qtd} aoMudar={(qtd) => mudarItem({ qtd })} />
+                <CampoNumero rotulo="Preço de cada" valor={item.preco} sufixo="R$" aoMudar={(preco) => mudarItem({ preco })} />
+                <button
+                  type="button"
+                  className="btn btn-perigo kit-remover"
+                  aria-label={`Remover ${item.nome}`}
+                  onClick={() => mudar({ kitGaveta: a.kitGaveta.filter((_, j) => j !== i) })}
+                >
+                  ×
+                </button>
+              </Linha>
+            </div>
+          );
+        })}
+        <p className="dica">
+          Por gaveta: <strong>{fmtReais(a.kitGaveta.reduce((s, x) => s + x.qtd * x.preco, 0))}</strong>
+        </p>
+        <div className="kit-acoes">
+          <button type="button" className="btn" onClick={() => mudar({ kitGaveta: [...a.kitGaveta, { nome: '', qtd: 1, preco: 0 }] })}>
+            + Item
+          </button>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              if (confirm('Voltar para a lista sugerida? Os itens que você mudou serão trocados.')) {
+                const corredica = a.kitGaveta.find((x) => /corredi/i.test(x.nome))?.preco ?? 35;
+                mudar({ kitGaveta: kitGavetaPadrao(corredica, a.precoPuxador) });
+              }
+            }}
+          >
+            Usar a sugestão
+          </button>
+        </div>
       </section>
 
       <section className="cartao">

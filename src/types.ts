@@ -28,8 +28,20 @@ export interface PecaBase {
 
 export type Frente = 'nenhuma' | 'portas' | 'gavetas';
 
-/** "objeto" é um equipamento (cuba, TV…): aparece no desenho, mas não entra no corte nem no custo. */
-export type TipoModulo = 'caixa' | 'prateleira' | 'livre' | 'objeto';
+/**
+ * "objeto" é um equipamento (cuba, TV…): aparece no desenho, mas não entra no corte nem no custo.
+ * "base" é o rodapé em quadro que vai embaixo dos módulos; "envelope" é o tamponamento
+ * (duas laterais e o tampo) que veste um conjunto de módulos.
+ */
+export type TipoModulo = 'caixa' | 'prateleira' | 'livre' | 'objeto' | 'base' | 'envelope';
+
+/** Um vão da caixa, entre as laterais e as divisórias. */
+export interface Vao {
+  /** Largura livre do vão, em mm; null divide o que sobra igualmente com os outros vãos sem medida. */
+  largura: number | null;
+  prateleiras: number;
+  cabideiro: boolean;
+}
 
 export type TipoObjeto = 'cuba' | 'cooktop' | 'tv' | 'geladeira' | 'fogao' | 'micro' | 'forno' | 'bancada';
 
@@ -53,10 +65,19 @@ export interface Modulo {
   materialId: string;
   materialFundoId: string | null;
   materialFrenteId: string;
-  prateleiras: number;
+  /** Por dentro da caixa: um vão a mais para cada divisória. */
+  vaos: Vao[];
   frente: Frente;
   qtdFrente: number;
   orientacao: Orientacao;
+}
+
+/** Ferragem ou acessório que entra no orçamento, com a quantidade por unidade (por gaveta, por exemplo). */
+export interface ItemKit {
+  nome: string;
+  qtd: number;
+  /** Preço de cada um, em reais. */
+  preco: number;
 }
 
 export interface Ajustes {
@@ -70,8 +91,11 @@ export interface Ajustes {
   folgaCorredica: number;
   recuoPrateleira: number;
   precoDobradica: number;
-  precoCorredica: number;
   precoPuxador: number;
+  /** O que entra no orçamento para cada gaveta (corrediça, puxador, parafusos…). */
+  kitGaveta: ItemKit[];
+  /** Tubo de cabide com os dois suportes. */
+  precoCabideiro: number;
   /** Preço sugerido = custo dos materiais × fator + custos extras, mais impostos. */
   fatorVenda: number;
   /** Impostos e taxas (nota, maquininha), em % do preço de venda. */

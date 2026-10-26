@@ -297,6 +297,38 @@ main > section {
   gap: 8px;
 }
 
+/* vãos de dentro do módulo, no editor */
+
+.vao-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+}
+
+/* lista do que entra em cada gaveta */
+
+.kit-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--borda);
+}
+
+.kit-remover {
+  align-self: flex-end;
+  padding: 10px 14px;
+}
+
+.kit-acoes {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .opcoes {
   display: flex;
   border: 1px solid var(--borda);
@@ -760,6 +792,27 @@ main > section {
 .movel .arrastavel {
   cursor: grab;
   touch-action: none;
+}
+
+.movel .cabide {
+  stroke: #8d939a;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.movel .cabide-gancho {
+  fill: none;
+  stroke: #9aa0a6;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.movel.previa svg {
+  max-height: 32vh;
+}
+
+.barra-selecao {
+  flex-wrap: wrap;
 }
 
 .movel .selecionado .corpo {

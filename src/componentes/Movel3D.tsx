@@ -22,7 +22,7 @@ import {
   type Material as MaterialCena,
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { espessuraDe } from '../modulos';
+import { arrumacaoDoVao, espessuraDe, vaosNaCaixa } from '../modulos';
 import type { Modulo, Piso, Projeto } from '../types';
 import { fmtMedida } from '../unidades';
 import { coresObjeto } from './DesenhoMovel';
@@ -129,6 +129,19 @@ function montarParede(p: Projeto, modulos: Modulo[], guardar: (m: MaterialCena) 
       peca(x, y, 0, L, e, P, corpo);
       continue;
     }
+    if (m.tipo === 'base') {
+      peca(x, y, 0, L, A, e, corpo);
+      peca(x, y, P - e, L, A, e, corpo);
+      peca(x, y, e, e, A, P - 2 * e, corpo);
+      peca(x + L - e, y, e, e, A, P - 2 * e, corpo);
+      continue;
+    }
+    if (m.tipo === 'envelope') {
+      peca(x, y, 0, e, A, P, corpo);
+      peca(x + L - e, y, 0, e, A, P, corpo);
+      peca(x + e, y + A - e, 0, L - 2 * e, e, P, corpo);
+      continue;
+    }
     if (m.tipo === 'livre') {
       if (m.orientacao === 'deitada') peca(x, y, 0, L, e, P, corpo);
       else if (m.orientacao === 'lateral') peca(x, y, 0, e, A, P, corpo);
@@ -141,10 +154,17 @@ function montarParede(p: Projeto, modulos: Modulo[], guardar: (m: MaterialCena) 
     peca(x + e, y, 0, L - 2 * e, e, P, corpo);
     peca(x + e, y + A - e, 0, L - 2 * e, e, P, corpo);
     if (m.materialFundoId) peca(x, y, -z0, L, A, z0, daChapa(m.materialFundoId));
-    const vao = A - 2 * e;
-    for (let k = 1; k <= m.prateleiras; k++) {
-      const meio = y + e + (k * vao) / (m.prateleiras + 1);
-      peca(x + e, meio - e / 2, 0, L - 2 * e, e, P - a.recuoPrateleira, corpo);
+    if (m.frente !== 'gavetas') {
+      vaosNaCaixa(m, materiais).forEach((v, i) => {
+        const vx = x + v.x;
+        if (i > 0) peca(vx - e, y + e, 0, e, A - 2 * e, P, corpo);
+        const arrumacao = arrumacaoDoVao(v.vao, A, e);
+        for (const py of arrumacao.prateleiras) peca(vx, y + py, 0, v.w, e, P - a.recuoPrateleira, corpo);
+        if (arrumacao.cabideiro !== null) {
+          // tubo deitado, de lado a lado do vão, no meio da profundidade
+          colocar(new CylinderGeometry(12, 12, v.w, 20).rotateZ(Math.PI / 2), metal, vx + v.w / 2, y + arrumacao.cabideiro, z0 + P / 2, false);
+        }
+      });
     }
 
     const n = m.qtdFrente;

@@ -1,6 +1,6 @@
 import { empacotar, type ItemCorte, type ResultadoCorte } from './corte';
-import { ferragensDoModulo, pecasDoModulo } from './modulos';
-import type { Material, PecaBase, Projeto } from './types';
+import { ferragensDoModulo, pecasDoModulo, somarItens } from './modulos';
+import type { ItemKit, Material, PecaBase, Projeto } from './types';
 
 export interface PecaLista extends PecaBase {
   origem: string;
@@ -18,7 +18,7 @@ export interface Orcamento {
   fitaMetros: number;
   custoFita: number;
   custoChapas: number;
-  ferragens: { dobradicas: number; corredicas: number; puxadores: number };
+  ferragens: ItemKit[];
   custoFerragens: number;
   /** Chapas + fita + ferragens. */
   custoMateriais: number;
@@ -60,15 +60,8 @@ export function calcular(p: Projeto): Orcamento {
   const custoFita = fitaMetros * a.precoFita;
   const custoChapas = porMaterial.reduce((s, r) => s + r.custo, 0);
 
-  const ferragens = { dobradicas: 0, corredicas: 0, puxadores: 0 };
-  for (const m of p.modulos) {
-    const f = ferragensDoModulo(m);
-    ferragens.dobradicas += f.dobradicas;
-    ferragens.corredicas += f.corredicas;
-    ferragens.puxadores += f.puxadores;
-  }
-  const custoFerragens =
-    ferragens.dobradicas * a.precoDobradica + ferragens.corredicas * a.precoCorredica + ferragens.puxadores * a.precoPuxador;
+  const ferragens = somarItens(p.modulos.flatMap((m) => ferragensDoModulo(m, a)));
+  const custoFerragens = ferragens.reduce((s, f) => s + f.qtd * f.preco, 0);
   const custoMateriais = custoChapas + custoFita + custoFerragens;
   const e = p.extras;
   const custoExtras = e.maoDeObra + e.instalacao + e.frete + e.outros;

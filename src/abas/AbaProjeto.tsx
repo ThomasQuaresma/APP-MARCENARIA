@@ -88,8 +88,10 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
     return r.x < -0.5 || r.y < -0.5 || r.x + r.w > parede.largura + 0.5 || r.y + r.h > parede.altura + 0.5;
   });
 
-  // equipamentos e painéis podem ficar sobre os móveis (TV no painel, cuba na bancada)
-  const solidos = daParede.filter((m) => m.tipo !== 'objeto' && !(m.tipo === 'livre' && m.orientacao === 'frente'));
+  // equipamentos e painéis podem ficar sobre os móveis (TV no painel, cuba na bancada), e o envelope veste os módulos
+  const solidos = daParede.filter(
+    (m) => m.tipo !== 'objeto' && m.tipo !== 'envelope' && !(m.tipo === 'livre' && m.orientacao === 'frente'),
+  );
   const sobrepostos: string[] = [];
   solidos.forEach((a, i) =>
     solidos.slice(i + 1).forEach((b) => {

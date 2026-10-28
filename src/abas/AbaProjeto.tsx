@@ -1,10 +1,10 @@
 import { useState, type Dispatch, type SetStateAction } from 'react';
+import { BarraModulos } from '../componentes/BarraModulos';
 import { CampoNumero, CampoTexto, Linha, Opcoes } from '../componentes/campos';
-import { Catalogo } from '../componentes/Catalogo';
 import { DesenhoMovel, type Mudanca } from '../componentes/DesenhoMovel';
 import { EditorModulo } from '../componentes/editores';
 import { novaParede, novoId, removerDaLista, salvarNaLista } from '../estado';
-import { descricao, medidasTexto, pecasDoModulo, retanguloNaTela, zonasDeCanto } from '../modulos';
+import { posicaoLivre, retanguloNaTela, sobrepoe, zonasDeCanto } from '../modulos';
 import type { Ambiente, Modulo, Parede, Piso, Projeto } from '../types';
 
 interface Props {
@@ -20,15 +20,12 @@ const formatos = [
   { valor: 3, texto: 'Em U' },
 ];
 
-const sobrepoe = (a: { x: number; y: number; w: number; h: number }, b: typeof a) =>
-  Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 1 && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > 1;
-
 export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Props) {
   const { modulos, materiais, ajustes, paredes, ambiente } = projeto;
   const u = ajustes.unidade;
   const [paredeId, setParedeId] = useState(paredes[0].id);
-  const [catalogoAberto, setCatalogoAberto] = useState(false);
-  const [edicao, setEdicao] = useState<{ item: Modulo; novo: boolean } | null>(null);
+  const [edicao, setEdicao] = useState<Modulo | null>(null);
+  const [selecionado, setSelecionado] = useState<string | null>(null);
 
   if (materiais.length === 0) {
     return <p className="vazio">Cadastre pelo menos uma chapa na aba Chapas para começar.</p>;
@@ -53,22 +50,6 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
     if (perdidos > 0 && !confirm(`Os ${perdidos} módulo(s) das paredes removidas serão apagados. Continuar?`)) return;
     atualizar({ paredes: paredes.slice(0, qtd), modulos: modulos.filter((m) => !removidas.includes(m.paredeId)) });
     if (removidas.includes(paredeId)) setParedeId(paredes[0].id);
-  }
-
-  /** Coloca o que foi escolhido no chão, à direita do último módulo da parede (ou do canto ocupado). */
-  function inserir(escolhidos: Modulo[]) {
-    setCatalogoAberto(false);
-    const inicio = Math.max(
-      0,
-      ...zonas.filter((z) => z.x === 0).map((z) => z.w),
-      ...daParede.map((m) => {
-        const r = retanguloNaTela(m, materiais);
-        return r.x + r.w;
-      }),
-    );
-    const novos = escolhidos.map((m) => ({ ...m, id: novoId(), paredeId: parede.id, x: inicio + (escolhidos.length > 1 ? m.x : 0) }));
-    if (novos.length === 1) setEdicao({ item: novos[0], novo: true });
-    else atualizar({ modulos: [...modulos, ...novos] });
   }
 
   const mudar = (id: string, mudanca: Mudanca) =>
@@ -99,6 +80,30 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
     }),
   );
   const noCanto = solidos.filter((m) => zonas.some((z) => sobrepoe(retanguloNaTela(m, materiais), z))).map((m) => m.nome);
+
+  /**
+   * Um toque no bloco já põe o módulo na parede, sem abrir a edição: ele entra no primeiro lugar livre
+   * na altura dele (o aéreo vai em cima do balcão) e fica selecionado. Editar é depois, tocando nele.
+   */
+  function inserir(escolhidos: Modulo[]) {
+    const rets = escolhidos.map((m) => retanguloNaTela(m, materiais));
+    const minX = Math.min(...rets.map((r) => r.x));
+    const minY = Math.min(...rets.map((r) => r.y));
+    const bloco = {
+      x: 0,
+      y: minY,
+      w: Math.max(...rets.map((r) => r.x + r.w)) - minX,
+      h: Math.max(...rets.map((r) => r.y + r.h)) - minY,
+    };
+    // equipamento sozinho só desvia de outro equipamento: a TV pode ir no painel, a cuba na bancada
+    const soEquipamento = escolhidos.every((m) => m.tipo === 'objeto');
+    const obstaculos = (soEquipamento ? daParede.filter((m) => m.tipo === 'objeto') : solidos).map((m) => retanguloNaTela(m, materiais));
+    const inicio = Math.max(0, ...zonas.filter((z) => z.x === 0).map((z) => z.w));
+    const x = posicaoLivre(bloco, [...obstaculos, ...zonas], inicio);
+    const novos = escolhidos.map((m) => ({ ...m, id: novoId(), paredeId: parede.id, x: x + m.x - minX }));
+    atualizar({ modulos: [...modulos, ...novos] });
+    setSelecionado(novos[0].id);
+  }
 
   return (
     <>
@@ -151,8 +156,17 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
           zonas={zonas}
           unidade={u}
           aoMudar={mudar}
-          aoTocar={(m) => setEdicao({ item: m, novo: false })}
+          aoTocar={setEdicao}
           aoDuplicar={duplicar}
+          selecionado={selecionado}
+          aoSelecionar={setSelecionado}
+        />
+        <BarraModulos
+          materiais={materiais}
+          biblioteca={biblioteca}
+          unidade={u}
+          aoEscolher={inserir}
+          aoRemoverModelo={(id) => setBiblioteca((l) => removerDaLista(l, id))}
         />
         {zonas.length > 0 && <p className="dica">A área hachurada é ocupada pelos móveis da parede vizinha, que entram no canto.</p>}
         {foraDaParede.length > 0 && (
@@ -161,48 +175,20 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
         {noCanto.length > 0 && <p className="alerta">Bate no móvel da parede vizinha: {noCanto.join(', ')}.</p>}
         {sobrepostos.length > 0 && (
           <p className="alerta">
-            Um módulo em cima do outro: {sobrepostos.join('; ')}. Para prateleira dentro do armário, use o campo "Prateleiras" do módulo.
+            Um módulo em cima do outro: {sobrepostos.join('; ')}. Para prateleira dentro do armário, use "Por dentro" na edição do módulo.
           </p>
         )}
-        {daParede.length > 0 && (
-          <p className="dica">
-            Arraste os módulos para montar: eles encaixam uns nos outros e nos cantos da parede. Toque para selecionar e puxe as bolinhas
-            dos cantos para mudar o tamanho. Toque de novo para editar.
-          </p>
-        )}
-        <button className="btn btn-principal" onClick={() => setCatalogoAberto(true)}>
-          + Adicionar módulo ou equipamento
-        </button>
+        <p className="dica">
+          {daParede.length === 0
+            ? 'Toque num bloco para colocar o módulo na parede. As peças e o custo são calculados sozinhos.'
+            : 'Arraste para mudar de lugar; puxe as bolinhas dos cantos para mudar o tamanho. Toque no módulo selecionado para editar.'}
+        </p>
       </section>
-
-      <h2 className="secao-titulo">Módulos {paredes.length > 1 ? `da ${parede.nome}` : ''}</h2>
-      {daParede.length === 0 && <p className="vazio">Toque em "Adicionar" para escolher módulos prontos. As peças são calculadas sozinhas.</p>}
-      {daParede.map((m) => (
-        <button key={m.id} className="item" onClick={() => setEdicao({ item: m, novo: false })}>
-          <strong>{m.nome}</strong>
-          <span>{medidasTexto(m, u)}</span>
-          <small>
-            {descricao(m, materiais)}
-            {m.tipo !== 'objeto' && ` · ${pecasDoModulo(m, materiais, ajustes).reduce((s, p) => s + p.qtd, 0)} peças`}
-          </small>
-        </button>
-      ))}
-
-      {catalogoAberto && (
-        <Catalogo
-          materiais={materiais}
-          biblioteca={biblioteca}
-          unidade={u}
-          aoEscolher={inserir}
-          aoRemoverModelo={(id) => setBiblioteca((l) => removerDaLista(l, id))}
-          aoFechar={() => setCatalogoAberto(false)}
-        />
-      )}
 
       {edicao && (
         <EditorModulo
-          inicial={edicao.item}
-          novo={edicao.novo}
+          inicial={edicao}
+          novo={false}
           materiais={materiais}
           ajustes={ajustes}
           aoFechar={() => setEdicao(null)}

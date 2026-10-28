@@ -29,7 +29,7 @@ export function AbaChapas({ projeto, atualizar }: Props) {
           + Chapa
         </button>
       </div>
-      <p className="dica">Cadastre as chapas que você usa, com o preço que paga hoje. Cada uma tem seu próprio plano de corte.</p>
+      <p className="dica">Cadastre as chapas que você usa, com o preço que paga hoje. O app calcula quantas chapas o projeto gasta para o orçamento.</p>
       {materiais.map((m) => (
         <button key={m.id} className="item" onClick={() => setEdicao({ item: m, novo: false })}>
           <strong>{m.nome}</strong>

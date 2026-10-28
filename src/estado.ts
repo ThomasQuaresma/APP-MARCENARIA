@@ -32,6 +32,7 @@ export const ajustesPadrao: Ajustes = {
   precoDobradica: 8,
   precoPuxador: 15,
   precoCabideiro: 30,
+  precoPistao: 25,
   kitGaveta: kitGavetaPadrao(35, 15),
   kitCorrer: kitCorrerPadrao(),
   precoTrilho: 60,

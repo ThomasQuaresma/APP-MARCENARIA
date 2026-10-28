@@ -140,6 +140,10 @@ export function pecasDoModulo(m: Modulo, materiais: Material[], a: Ajustes): Pec
     add('Porta', m.materialFrenteId, A - 2 * f, (L - f * (n + 1)) / n, n, 2, 2);
   }
 
+  if (m.frente === 'basculante' && n > 0) {
+    add('Porta basculante', m.materialFrenteId, L - 2 * f, (A - f * (n + 1)) / n, n, 2, 2);
+  }
+
   if (m.frente === 'correr' && n > 0) {
     add('Porta de correr', m.materialFrenteId, A - a.descontoAlturaCorrer, larguraFolhaCorrer(L, n, a.transpasseCorrer), n, 2, 2);
   }
@@ -168,6 +172,13 @@ export function ferragensDoModulo(m: Modulo, a: Ajustes): ItemKit[] {
   if (n > 0 && m.frente === 'portas') {
     const porPorta = m.altura <= 900 ? 2 : m.altura <= 1600 ? 3 : 4;
     itens.push({ nome: 'Dobradiça', qtd: porPorta * n, preco: a.precoDobradica }, { nome: 'Puxador', qtd: n, preco: a.precoPuxador });
+  }
+  if (n > 0 && m.frente === 'basculante') {
+    itens.push(
+      { nome: 'Dobradiça', qtd: 2 * n, preco: a.precoDobradica },
+      { nome: 'Pistão a gás', qtd: 2 * n, preco: a.precoPistao },
+      { nome: 'Puxador', qtd: n, preco: a.precoPuxador },
+    );
   }
   if (n > 0 && m.frente === 'gavetas') {
     for (const k of a.kitGaveta) if (k.qtd > 0) itens.push({ ...k, qtd: k.qtd * n });
@@ -254,6 +265,7 @@ export function descricaoFrente(m: Modulo) {
   if (m.frente === 'portas' && m.qtdFrente > 0) return m.qtdFrente === 1 ? '1 porta' : `${m.qtdFrente} portas`;
   if (m.frente === 'gavetas' && m.qtdFrente > 0) return m.qtdFrente === 1 ? '1 gaveta' : `${m.qtdFrente} gavetas`;
   if (m.frente === 'correr' && m.qtdFrente > 0) return `${m.qtdFrente} portas de correr`;
+  if (m.frente === 'basculante' && m.qtdFrente > 0) return m.qtdFrente === 1 ? '1 basculante' : `${m.qtdFrente} basculantes`;
   return 'aberto';
 }
 
@@ -319,6 +331,20 @@ export function moduloDoMolde(molde: Molde, nome: string, materiais: Material[])
   if (molde === 'base') return { ...padrao, ...semFrente, tipo: 'base', largura: 1000, altura: 120, profundidade: 500 };
   if (molde === 'envelope') return { ...padrao, ...semFrente, tipo: 'envelope', largura: 1036, altura: 2418, profundidade: 600 };
   return padrao;
+}
+
+/** Dois retângulos se cruzam (encostar não conta); meio milímetro de tolerância para arredondamentos. */
+export const sobrepoe = (a: Retangulo, b: Retangulo) =>
+  Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 1 && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > 1;
+
+/**
+ * Onde um bloco novo entra na parede: no primeiro x, da esquerda para a direita, em que ele não bate
+ * em nada na mesma altura. Assim o aéreo vai em cima do balcão, e o balcão vai ao lado do outro.
+ */
+export function posicaoLivre(bloco: Retangulo, obstaculos: Retangulo[], inicio: number) {
+  const candidatos = [inicio, ...obstaculos.map((o) => o.x + o.w)].filter((x) => x >= inicio).sort((a, b) => a - b);
+  // o último candidato fica depois de todos os obstáculos, então sempre há lugar
+  return candidatos.find((x) => !obstaculos.some((o) => sobrepoe({ ...bloco, x }, o))) ?? inicio;
 }
 
 /** Puxa uma borda solta (ao mudar o tamanho) para a borda mais perto; sem nenhuma perto, arredonda no centímetro. */

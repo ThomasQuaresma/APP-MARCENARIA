@@ -184,13 +184,15 @@ function montarParede(p: Projeto, modulos: Modulo[], guardar: (m: MaterialCena) 
       }
     }
 
-    if (m.frente === 'gavetas' && n > 0) {
+    if ((m.frente === 'gavetas' || m.frente === 'basculante') && n > 0) {
       const dh = (A - f * (n + 1)) / n;
       const larguraPuxador = Math.min(L * 0.3, 220);
       for (let i = 0; i < n; i++) {
         const py = y + f + i * (dh + f);
         peca(x + f, py, P, L - 2 * f, dh, eFrente, frente);
-        peca(x + L / 2 - larguraPuxador / 2, py + dh / 2 - 6, P + eFrente, larguraPuxador, 12, 18, metal, false);
+        // na basculante o puxador fica embaixo, de onde se levanta a porta
+        const alturaPuxador = m.frente === 'basculante' ? py + Math.min(dh * 0.12, 50) : py + dh / 2 - 6;
+        peca(x + L / 2 - larguraPuxador / 2, alturaPuxador, P + eFrente, larguraPuxador, 12, 18, metal, false);
       }
     }
 

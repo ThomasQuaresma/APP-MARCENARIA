@@ -90,7 +90,7 @@ function PorDentro({ m, materiais, unidade: u, mudar }: PorDentroProps) {
         );
       })}
       {apertado && <p className="alerta">As medidas dos vãos passam da largura da caixa. Diminua alguma delas.</p>}
-      {(m.frente === 'portas' || m.frente === 'correr') && (
+      {(m.frente === 'portas' || m.frente === 'correr' || m.frente === 'basculante') && (
         <p className="dica">No desenho, selecione o módulo e toque em "Abrir portas" para ver por dentro.</p>
       )}
     </>
@@ -201,18 +201,30 @@ export function EditorModulo({
             opcaoVazia="Sem fundo"
             aoMudar={(materialFundoId) => mudar({ materialFundoId })}
           />
-          <Opcoes<Frente>
-            rotulo="Frente"
-            valor={m.frente}
-            opcoes={[
-              { valor: 'nenhuma', texto: 'Nenhuma' },
-              { valor: 'portas', texto: 'Portas' },
-              { valor: 'correr', texto: 'De correr' },
-              { valor: 'gavetas', texto: 'Gavetas' },
-            ]}
-            // porta de correr precisa de pelo menos duas folhas para abrir
-            aoMudar={(frente) => mudar({ frente, qtdFrente: frente === 'correr' ? Math.max(2, m.qtdFrente) : m.qtdFrente || 2 })}
-          />
+          {/* são cinco tipos de frente: numa lista cabe melhor no celular do que em botões lado a lado */}
+          <label className="campo">
+            <span>Frente</span>
+            <div className="campo-caixa">
+              <select
+                value={m.frente}
+                onChange={(e) => {
+                  const frente = e.target.value as Frente;
+                  // porta de correr precisa de pelo menos duas folhas para abrir
+                  const qtdFrente = frente === 'correr' ? Math.max(2, m.qtdFrente) : m.qtdFrente || (frente === 'basculante' ? 1 : 2);
+                  mudar({ frente, qtdFrente });
+                }}
+              >
+                <option value="nenhuma">Nenhuma (aberto)</option>
+                <option value="portas">Portas de abrir</option>
+                <option value="correr">Portas de correr</option>
+                <option value="basculante">Basculante</option>
+                <option value="gavetas">Gavetas</option>
+              </select>
+            </div>
+          </label>
+          {m.frente === 'basculante' && (
+            <p className="dica">Porta que abre para cima. Cada uma soma 2 dobradiças, 2 pistões a gás e 1 puxador.</p>
+          )}
           {m.frente === 'correr' && (
             <p className="dica">
               As folhas correm num trilho duplo na frente da caixa e passam uma por cima da outra. Cada folha soma o kit de Ajustes → "Ao
@@ -222,7 +234,7 @@ export function EditorModulo({
           {m.frente !== 'nenhuma' && (
             <>
               <CampoNumero
-                rotulo={{ portas: 'Quantas portas', correr: 'Quantas folhas', gavetas: 'Quantas gavetas' }[m.frente]}
+                rotulo={{ portas: 'Quantas portas', correr: 'Quantas folhas', basculante: 'Quantas portas (uma sobre a outra)', gavetas: 'Quantas gavetas' }[m.frente]}
                 valor={m.qtdFrente}
                 inteiro
                 aoMudar={(qtdFrente) => mudar({ qtdFrente })}

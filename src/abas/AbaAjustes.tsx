@@ -151,12 +151,15 @@ export function AbaAjustes({ projeto, atualizar }: Props) {
           <CampoNumero rotulo="Dobradiça" valor={a.precoDobradica} sufixo="R$" aoMudar={(precoDobradica) => mudar({ precoDobradica })} />
           <CampoNumero rotulo="Puxador da porta" valor={a.precoPuxador} sufixo="R$" aoMudar={(precoPuxador) => mudar({ precoPuxador })} />
         </Linha>
-        <CampoNumero
-          rotulo="Cabideiro (tubo e suportes)"
-          valor={a.precoCabideiro}
-          sufixo="R$"
-          aoMudar={(precoCabideiro) => mudar({ precoCabideiro })}
-        />
+        <Linha>
+          <CampoNumero
+            rotulo="Cabideiro (tubo e suportes)"
+            valor={a.precoCabideiro}
+            sufixo="R$"
+            aoMudar={(precoCabideiro) => mudar({ precoCabideiro })}
+          />
+          <CampoNumero rotulo="Pistão a gás (basculante)" valor={a.precoPistao} sufixo="R$" aoMudar={(precoPistao) => mudar({ precoPistao })} />
+        </Linha>
       </section>
 
       <EditorKit

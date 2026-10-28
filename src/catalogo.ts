@@ -98,7 +98,7 @@ const um = (id: string, nome: string, icone: string, m: Medidas): ItemCatalogo =
   criar: (materiais) => [caixa(materiais, m)],
 });
 
-export const catalogo: Categoria[] = [
+const categorias: Categoria[] = [
   {
     id: 'basicos',
     nome: 'Básicos',
@@ -128,6 +128,16 @@ export const catalogo: Categoria[] = [
       um('balcao-gavetas', 'Balcão gaveteiro', '🗃️', { nome: 'Balcão gaveteiro', largura: 600, altura: 850, profundidade: 550, frente: 'gavetas', qtdFrente: 3, prateleiras: 0 }),
       um('balcao', 'Balcão 2 portas', '🚪', { nome: 'Balcão', largura: 800, altura: 850, profundidade: 550, frente: 'portas', qtdFrente: 2, prateleiras: 1 }),
       um('aereo', 'Aéreo', '⬆️', { nome: 'Aéreo', y: 1500, largura: 800, altura: 700, profundidade: 350 }),
+      um('aereo-basculante', 'Aéreo basculante', '⤴️', {
+        nome: 'Aéreo basculante',
+        y: 1500,
+        largura: 800,
+        altura: 400,
+        profundidade: 350,
+        frente: 'basculante',
+        qtdFrente: 1,
+        prateleiras: 0,
+      }),
       {
         id: 'nicho-micro',
         nome: 'Nicho de micro-ondas',
@@ -155,7 +165,7 @@ export const catalogo: Categoria[] = [
   },
   {
     id: 'dormitorio',
-    nome: 'Dormitório',
+    nome: 'Quarto',
     itens: [
       um('gr-modulo-portas', 'Módulo guarda-roupa com portas', '🚪', {
         nome: 'Guarda-roupa',
@@ -310,3 +320,8 @@ export const catalogo: Categoria[] = [
     ).map(([tipo, icone]) => ({ id: tipo, nome: nomesObjeto[tipo], icone, criar: (mt: Material[]) => [objeto(mt, tipo)] })),
   },
 ];
+
+/** A cozinha vem primeiro, que é por onde o marceneiro mais começa; os básicos ficam no fim, para quem monta do zero. */
+const ordem = ['cozinha', 'dormitorio', 'prateleiras', 'sala', 'banheiro', 'basicos', 'equipamentos'];
+
+export const catalogo = [...categorias].sort((a, b) => ordem.indexOf(a.id) - ordem.indexOf(b.id));

@@ -640,53 +640,90 @@ main > section {
   font-weight: 600;
 }
 
-.grade-catalogo {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 8px;
-}
+/* blocos prontos embaixo do desenho: um toque coloca o módulo na parede */
 
-.grade-catalogo .molde {
-  text-align: center;
-  min-height: 92px;
-}
-
-.modelos {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.modelo {
-  display: flex;
-  border: 1px solid var(--borda);
-  border-radius: 10px;
-  background: var(--cartao);
-  overflow: hidden;
-}
-
-.modelo button {
-  border: 0;
-  background: none;
-  cursor: pointer;
-  padding: 8px 12px;
-  text-align: left;
-}
-
-.modelo button:first-child {
+.barra-modulos {
   display: flex;
   flex-direction: column;
+  gap: 8px;
+  margin: 0 -16px;
 }
 
-.modelo small {
+.barra-modulos .categorias {
+  padding: 0 16px;
+  border-bottom: 0;
+}
+
+.blocos {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 16px 6px;
+  scroll-snap-type: x proximity;
+}
+
+.bloco {
+  flex: none;
+  width: 104px;
+  min-height: 92px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 6px;
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  background: var(--cartao);
+  font-size: 0.82rem;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  scroll-snap-align: start;
+}
+
+.bloco > span {
+  font-size: 1.6rem;
+}
+
+.bloco:active {
+  background: var(--marca-claro);
+}
+
+.modelo-bloco {
+  position: relative;
+  padding: 0;
+}
+
+.modelo-bloco > button:first-child {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 6px;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.modelo-bloco small {
   color: var(--suave);
 }
 
-.modelo .remover {
-  border-left: 1px solid var(--borda);
+.modelo-bloco .remover {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  border: 0;
+  background: none;
   color: var(--suave);
-  font-size: 1.2rem;
-  padding: 0 12px;
+  font-size: 1.1rem;
+  padding: 2px 6px;
+  cursor: pointer;
 }
 
 /* desenho do móvel */
@@ -840,6 +877,26 @@ main > section {
   stroke: var(--marca);
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
+}
+
+.movel .distancias line {
+  stroke: #c0392b;
+  stroke-width: 1;
+  stroke-dasharray: 5 4;
+}
+
+.movel .distancias text {
+  fill: #c0392b;
+  font-family: system-ui, sans-serif;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 4px;
+  pointer-events: none;
+}
+
+.movel .distancias {
+  pointer-events: none;
 }
 
 .movel .cotas line {

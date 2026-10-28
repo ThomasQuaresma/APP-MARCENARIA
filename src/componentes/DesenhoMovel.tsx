@@ -70,6 +70,9 @@ interface Props {
   aoTocar?: (m: Modulo) => void;
   /** Cria a cópia e devolve o id dela, que passa a ficar selecionada. */
   aoDuplicar?: (m: Modulo) => string;
+  /** Seleção controlada por fora (para o módulo recém-colocado já vir selecionado); sem ela, o desenho cuida sozinho. */
+  selecionado?: string | null;
+  aoSelecionar?: (id: string | null) => void;
 }
 
 /** Aplica o retângulo da tela nas medidas do módulo; a espessura da chapa não muda. */
@@ -88,11 +91,14 @@ function cantosDe(m: Modulo): Canto[] {
 
 const cursorDo = ({ sx, sy }: Canto) => (sx === 0 ? 'ns-resize' : sy === 0 ? 'ew-resize' : sx === sy ? 'nesw-resize' : 'nwse-resize');
 
-export function DesenhoMovel({ modulos, materiais, parede, zonas = [], unidade: u, aoMudar, aoTocar, aoDuplicar }: Props) {
+export function DesenhoMovel(props: Props) {
+  const { modulos, materiais, parede, zonas = [], unidade: u, aoMudar, aoTocar, aoDuplicar } = props;
   const svg = useRef<SVGSVGElement>(null);
   const idHachura = `hachura-${useId().replace(/:/g, '')}`;
   const [arraste, setArraste] = useState<Arraste | null>(null);
-  const [selecionado, setSelecionado] = useState<string | null>(null);
+  const [selecaoInterna, setSelecaoInterna] = useState<string | null>(null);
+  const selecionado = props.selecionado !== undefined ? props.selecionado : selecaoInterna;
+  const setSelecionado = props.aoSelecionar ?? setSelecaoInterna;
   /** Módulos com as portas abertas no desenho. */
   const [abertos, setAbertos] = useState<string[]>([]);
   const editavel = !!aoMudar;
@@ -253,7 +259,7 @@ export function DesenhoMovel({ modulos, materiais, parede, zonas = [], unidade: 
           <line x1={limites.x} x2={limites.x + limites.w} y1={-arraste.guias.y} y2={-arraste.guias.y} className="guia" />
         )}
         {sel && retSel && (
-          <Cotas r={retSel} unidade={u} fonte={fonteCota} afastamento={afastamento} />
+          <Cotas r={retSel} parede={parede} unidade={u} fonte={fonteCota} afastamento={afastamento} />
         )}
         {sel &&
           retSel &&
@@ -276,7 +282,7 @@ export function DesenhoMovel({ modulos, materiais, parede, zonas = [], unidade: 
           <button type="button" className="btn" onClick={() => aoTocar?.(original(sel.id) ?? sel)}>
             Editar
           </button>
-          {sel.tipo === 'caixa' && (sel.frente === 'portas' || sel.frente === 'correr') && sel.qtdFrente > 0 && (
+          {sel.tipo === 'caixa' && (sel.frente === 'portas' || sel.frente === 'correr' || sel.frente === 'basculante') && sel.qtdFrente > 0 && (
             <button
               type="button"
               className="btn"
@@ -316,13 +322,68 @@ export function PreviaModulo({ m, materiais }: { m: Modulo; materiais: Material[
 
 interface CotasProps {
   r: Retangulo;
+  parede: Parede;
   unidade: Unidade;
   fonte: number;
   afastamento: number;
 }
 
-/** Medidas do módulo selecionado: a largura em cima e a altura dos dois lados. */
-function Cotas({ r, unidade: u, fonte, afastamento: a }: CotasProps) {
+/**
+ * Medidas do módulo selecionado: a largura em cima, a altura dos dois lados e, tracejado,
+ * quanto sobra até cada canto da parede, até o chão e até o teto.
+ */
+function Cotas({ r, parede, unidade: u, fonte, afastamento: a }: CotasProps) {
+  const topo = -(r.y + r.h);
+  const meioY = topo + r.h / 2;
+  // a linha da distância fica um pouco abaixo do meio, para não cruzar o nome do módulo
+  const yDistancia = meioY + fonte * 1.6;
+  const xDistancia = r.x + r.w / 2 + fonte * 1.6;
+  const texto = (v: number) => `${fmtMedida(v, u)} ${u}`;
+  const cabe = (comprimento: number) => comprimento > fonte * 4;
+  const horizontais = [
+    { de: 0, ate: r.x },
+    { de: r.x + r.w, ate: parede.largura },
+  ].filter((d) => d.ate - d.de > 1);
+  const verticais = [
+    { de: -r.y, ate: 0 },
+    { de: -parede.altura, ate: topo },
+  ].filter((d) => d.ate - d.de > 1);
+  return (
+    <>
+      <g className="distancias">
+        {horizontais.map((d, i) => (
+          <g key={`h${i}`}>
+            <line x1={d.de} x2={d.ate} y1={yDistancia} y2={yDistancia} />
+            {cabe(d.ate - d.de) && (
+              <text x={(d.de + d.ate) / 2} y={yDistancia - fonte * 0.35} fontSize={fonte} textAnchor="middle">
+                {texto(d.ate - d.de)}
+              </text>
+            )}
+          </g>
+        ))}
+        {verticais.map((d, i) => (
+          <g key={`v${i}`}>
+            <line x1={xDistancia} x2={xDistancia} y1={d.de} y2={d.ate} />
+            {cabe(d.ate - d.de) && (
+              <text
+                x={xDistancia - fonte * 0.35}
+                y={(d.de + d.ate) / 2}
+                fontSize={fonte}
+                textAnchor="middle"
+                transform={`rotate(-90 ${xDistancia - fonte * 0.35} ${(d.de + d.ate) / 2})`}
+              >
+                {texto(d.ate - d.de)}
+              </text>
+            )}
+          </g>
+        ))}
+      </g>
+      <MedidasDoModulo r={r} unidade={u} fonte={fonte} afastamento={a} />
+    </>
+  );
+}
+
+function MedidasDoModulo({ r, unidade: u, fonte, afastamento: a }: Omit<CotasProps, 'parede'>) {
   const topo = -(r.y + r.h);
   const meioY = topo + r.h / 2;
   const traco = fonte * 0.4;
@@ -450,13 +511,14 @@ function Figura({ m, r, materiais, escala, aberto = false }: FiguraProps) {
       const cx = i === 0 ? esquerda + dw - transpasse - 50 : esquerda + transpasse + 30;
       detalhes.push(<rect key={`c${i}`} x={cx} y={topo + r.h * 0.44} width={20} height={r.h * 0.12} rx={10} className="concha" />);
     }
-  } else if (m.tipo === 'caixa' && m.frente === 'gavetas' && n > 0) {
+  } else if (m.tipo === 'caixa' && n > 0 && (m.frente === 'gavetas' || (m.frente === 'basculante' && !aberto))) {
     fundo = cor(m.materialFrenteId);
     const dh = r.h / n;
     for (let i = 0; i < n; i++) {
       const cima = topo + i * dh;
       if (i > 0) detalhes.push(<line key={`d${i}`} x1={r.x} x2={r.x + r.w} y1={cima} y2={cima} />);
-      const py = cima + dh / 2;
+      // a basculante abre para cima: o puxador fica embaixo da porta
+      const py = m.frente === 'basculante' ? cima + dh * 0.88 : cima + dh / 2;
       detalhes.push(<line key={`p${i}`} x1={r.x + r.w * 0.38} x2={r.x + r.w * 0.62} y1={py} y2={py} className="puxador" />);
     }
   } else if (m.tipo === 'caixa') {

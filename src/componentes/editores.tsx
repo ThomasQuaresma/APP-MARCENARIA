@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { medidasTv } from '../catalogo';
 import { vaoSimples } from '../estado';
-import { ferragensDoModulo, pecasDoModulo, vaosNaCaixa } from '../modulos';
+import { ferragensDoModulo, ladosDe, pecasDoModulo, vaosNaCaixa } from '../modulos';
 import type { Ajustes, Frente, Material, Modulo, Orientacao, TipoModulo, Unidade, Vao } from '../types';
 import { fmtDim, fmtMedida, fmtNum, fmtReais } from '../unidades';
 import { CampoMaterial, CampoNumero, CampoTexto, Linha, Opcoes } from './campos';
@@ -257,7 +257,31 @@ export function EditorModulo({
       {m.tipo === 'prateleira' && <p className="dica">Prateleira fixada direto na parede, fora dos armários.</p>}
       {m.tipo === 'base' && <p className="dica">Quadro de rodapé: frente e trás inteiras, travessas entre elas. Coloque os módulos em cima.</p>}
       {m.tipo === 'envelope' && (
-        <p className="dica">Tamponamento: duas laterais inteiras e o tampo entre elas. Os módulos encaixam por dentro.</p>
+        <div className="campo">
+          <span>Peças do tamponamento</span>
+          <div className="opcoes">
+            {(
+              [
+                ['esquerda', 'Lateral esq.'],
+                ['direita', 'Lateral dir.'],
+                ['tampo', 'Tampo'],
+                ['fundo', 'Fundo'],
+              ] as const
+            ).map(([k, texto]) => (
+              <button
+                key={k}
+                type="button"
+                className={ladosDe(m)[k] ? 'ativo' : ''}
+                onClick={() => mudar({ lados: { ...ladosDe(m), [k]: !ladosDe(m)[k] } })}
+              >
+                {texto}
+              </button>
+            ))}
+          </div>
+          <p className="dica">
+            As laterais passam inteiras e o tampo fica entre elas. Só uma peça vira painel (fundo), cabeceira, lateral ou prateleira (tampo).
+          </p>
+        </div>
       )}
 
       {ferragens.length > 0 && (

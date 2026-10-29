@@ -25,7 +25,7 @@ import {
   type Material as MaterialCena,
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { arrumacaoDoVao, espessuraDe, larguraFolhaCorrer, TRILHO_CORRER, vaosNaCaixa } from '../modulos';
+import { arrumacaoDoVao, espessuraDe, ladosDe, larguraFolhaCorrer, TRILHO_CORRER, vaosNaCaixa } from '../modulos';
 import { radianos, tracado } from '../planta';
 import type { Modulo, Parede, Piso, Projeto } from '../types';
 import { fmtMedida } from '../unidades';
@@ -194,9 +194,13 @@ function montarParede(p: Projeto, modulos: Modulo[], guardar: (m: MaterialCena) 
       continue;
     }
     if (m.tipo === 'envelope') {
-      peca(x, y, 0, e, A, P, corpo);
-      peca(x + L - e, y, 0, e, A, P, corpo);
-      peca(x + e, y + A - e, 0, L - 2 * e, e, P, corpo);
+      const l = ladosDe(m);
+      const esq = l.esquerda ? e : 0;
+      const entre = L - esq - (l.direita ? e : 0);
+      if (l.esquerda) peca(x, y, 0, e, A, P, corpo);
+      if (l.direita) peca(x + L - e, y, 0, e, A, P, corpo);
+      if (l.tampo) peca(x + esq, y + A - e, 0, entre, e, P, corpo);
+      if (l.fundo) peca(x + esq, y, 0, entre, A - (l.tampo ? e : 0), e, corpo);
       continue;
     }
     if (m.tipo === 'livre') {

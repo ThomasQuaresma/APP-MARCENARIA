@@ -6,6 +6,7 @@ import {
   encaixar,
   encaixarBorda,
   espessuraDe,
+  ladosDe,
   retangulosDasAberturas,
   retangulosDeEncaixe,
   retanguloNaTela,
@@ -75,6 +76,8 @@ interface Props {
   /** Cria a cópia e devolve o id dela, que passa a ficar selecionada. */
   aoDuplicar?: (m: Modulo) => string;
   aoExcluir?: (m: Modulo) => void;
+  /** Veste a caixa com o tamponamento e devolve o id dele, que passa a ficar selecionado. */
+  aoTamponar?: (m: Modulo) => string;
   /** Portas e janelas mudadas no desenho (arrastadas, duplicadas, excluídas). */
   aoMudarAberturas?: (aberturas: Abertura[]) => void;
   aoEditarAbertura?: (a: Abertura) => void;
@@ -109,7 +112,7 @@ const comRetanguloAbertura = (a: Abertura, r: Retangulo): Abertura => ({ ...a, x
 const cursorDo = ({ sx, sy }: Canto) => (sx === 0 ? 'ns-resize' : sy === 0 ? 'ew-resize' : sx === sy ? 'nesw-resize' : 'nwse-resize');
 
 export function DesenhoMovel(props: Props) {
-  const { modulos, materiais, parede, zonas = [], unidade: u, aoMudar, aoTocar, aoDuplicar, aoExcluir, aoMudarAberturas, aoEditarAbertura } =
+  const { modulos, materiais, parede, zonas = [], unidade: u, aoMudar, aoTocar, aoDuplicar, aoExcluir, aoTamponar, aoMudarAberturas, aoEditarAbertura } =
     props;
   const svg = useRef<SVGSVGElement>(null);
   const idHachura = `hachura-${useId().replace(/:/g, '')}`;
@@ -366,6 +369,11 @@ export function DesenhoMovel(props: Props) {
               Duplicar
             </button>
           )}
+          {aoTamponar && sel.tipo === 'caixa' && (
+            <button type="button" className="btn" onClick={() => setSelecionado(aoTamponar(original(sel.id) ?? sel))}>
+              Tamponar
+            </button>
+          )}
           {aoExcluir && (
             <button type="button" className="btn btn-perigo" onClick={() => aoExcluir(original(sel.id) ?? sel)}>
               Excluir
@@ -620,14 +628,14 @@ function Figura({ m, r, materiais, escala, aberto = false }: FiguraProps) {
       detalhes.push(<rect key="vidro" x={r.x + r.w * 0.08} y={vidroAlto} width={vidroW} height={r.h * 0.5} className="vidro" />);
     }
   } else if (m.tipo === 'envelope') {
-    // só as laterais e o tampo aparecem; o vão de dentro fica livre para os módulos
+    // só as peças escolhidas aparecem; sem fundo, o vão de dentro fica livre para os módulos
     const e = espessuraDe(m.materialId, materiais);
-    fundo = 'none';
-    detalhes.push(
-      <rect key="le" x={r.x} y={topo} width={e} height={r.h} fill={cor(m.materialId)} />,
-      <rect key="ld" x={r.x + r.w - e} y={topo} width={e} height={r.h} fill={cor(m.materialId)} />,
-      <rect key="tampo" x={r.x + e} y={topo} width={Math.max(0, r.w - 2 * e)} height={e} fill={cor(m.materialId)} />,
-    );
+    const l = ladosDe(m);
+    const c = cor(m.materialId);
+    fundo = l.fundo ? c : 'none';
+    if (l.esquerda) detalhes.push(<rect key="le" x={r.x} y={topo} width={e} height={r.h} fill={c} />);
+    if (l.direita) detalhes.push(<rect key="ld" x={r.x + r.w - e} y={topo} width={e} height={r.h} fill={c} />);
+    if (l.tampo) detalhes.push(<rect key="tampo" x={r.x} y={topo} width={r.w} height={e} fill={c} />);
   } else if (m.tipo === 'caixa' && m.frente === 'portas' && n > 0 && !aberto) {
     fundo = cor(m.materialFrenteId);
     const dw = r.w / n;

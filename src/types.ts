@@ -47,6 +47,14 @@ export interface Vao {
   cabideiro: boolean;
 }
 
+/** Peças do tamponamento: as duas laterais, o tampo de cima e o fundo (painel atrás, para cabeceira e painel de sala). */
+export interface LadosTamponamento {
+  esquerda: boolean;
+  direita: boolean;
+  tampo: boolean;
+  fundo: boolean;
+}
+
 export type TipoObjeto = 'cuba' | 'cooktop' | 'tv' | 'geladeira' | 'fogao' | 'micro' | 'forno' | 'bancada';
 
 /** Como a peça livre aparece olhando o móvel de frente. */
@@ -74,6 +82,8 @@ export interface Modulo {
   frente: Frente;
   qtdFrente: number;
   orientacao: Orientacao;
+  /** Só no tamponamento (tipo 'envelope'); sem ele, laterais e tampo. */
+  lados?: LadosTamponamento;
 }
 
 /** Ferragem ou acessório que entra no orçamento, com a quantidade por unidade (por gaveta, por exemplo). */
@@ -110,6 +120,8 @@ export interface Ajustes {
   transpasseCorrer: number;
   /** Quanto a folha de correr fica mais baixa que a caixa, para caber nos trilhos, em mm. */
   descontoAlturaCorrer: number;
+  /** Quanto o tamponamento fica mais fundo que a caixa que ele veste, para passar na frente das portas, em mm. */
+  avancoTamponamento: number;
   /** Preço sugerido = custo dos materiais × fator + custos extras, mais impostos. */
   fatorVenda: number;
   /** Impostos e taxas (nota, maquininha), em % do preço de venda. */

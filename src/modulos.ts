@@ -1,7 +1,7 @@
 import type { Retangulo } from './corte';
 import { novoId, vaoSimples } from './estado';
 import { radianos, vizinhas } from './planta';
-import type { Ajustes, ItemKit, Material, Modulo, Parede, PecaBase, Projeto, TipoObjeto, Unidade, Vao } from './types';
+import type { Ajustes, ItemKit, LadosTamponamento, Material, Modulo, Parede, PecaBase, Projeto, TipoObjeto, Unidade, Vao } from './types';
 import { fmtMedida } from './unidades';
 
 const arred = (n: number) => Math.round(n * 10) / 10;
@@ -127,9 +127,12 @@ export function pecasDoModulo(m: Modulo, materiais: Material[], a: Ajustes): Pec
   }
 
   if (m.tipo === 'envelope') {
-    // as laterais passam, o tampo fica entre elas
-    add('Lateral envelope', m.materialId, A, P, 2, 1);
-    add('Tampo envelope', m.materialId, vao, P, 1, 1);
+    // as laterais passam, o tampo fica entre elas e o fundo entre as laterais, embaixo do tampo
+    const l = ladosDe(m);
+    const entre = L - e * (Number(l.esquerda) + Number(l.direita));
+    add('Lateral tamponamento', m.materialId, A, P, Number(l.esquerda) + Number(l.direita), 1);
+    if (l.tampo) add('Tampo tamponamento', m.materialId, entre, P, 1, 1);
+    if (l.fundo) add('Fundo tamponamento (painel)', m.materialId, A - (l.tampo ? e : 0), entre, 1);
     return pecas;
   }
 
@@ -256,13 +259,20 @@ export function arrumacaoDoVao(v: Vao, A: number, e: number) {
   return { prateleiras, cabideiro: teto - 60 };
 }
 
-/** Bordas em que os outros módulos encaixam; no envelope, também o vão de dentro. */
+export const ladosPadrao: LadosTamponamento = { esquerda: true, direita: true, tampo: true, fundo: false };
+export const ladosDe = (m: Modulo) => m.lados ?? ladosPadrao;
+
+/** Bordas em que os outros módulos encaixam; no tamponamento, também o vão de dentro. */
 export function retangulosDeEncaixe(m: Modulo, materiais: Material[]): Retangulo[] {
   const r = retanguloNaTela(m, materiais);
   if (m.tipo !== 'envelope') return [r];
   const e = espessuraDe(m.materialId, materiais);
-  return [r, { x: r.x + e, y: r.y, w: r.w - 2 * e, h: r.h - e }];
+  const l = ladosDe(m);
+  const esq = l.esquerda ? e : 0;
+  return [r, { x: r.x + esq, y: r.y, w: r.w - esq - (l.direita ? e : 0), h: r.h - (l.tampo ? e : 0) }];
 }
+
+const nomesLados: Record<keyof LadosTamponamento, string> = { esquerda: 'lateral esq.', direita: 'lateral dir.', tampo: 'tampo', fundo: 'fundo' };
 
 function resumoInterior(m: Modulo) {
   if (m.frente === 'gavetas') return '';
@@ -292,7 +302,11 @@ export function descricao(m: Modulo, materiais: Material[]) {
   if (m.tipo === 'prateleira') return `Prateleira de parede · ${material}`;
   if (m.tipo === 'livre') return `${{ frente: 'Painel', deitada: 'Tampo', lateral: 'Lateral' }[m.orientacao]} · ${material}`;
   if (m.tipo === 'base') return `Base (rodapé) · ${material}`;
-  if (m.tipo === 'envelope') return `Envelope (tamponamento) · ${material}`;
+  if (m.tipo === 'envelope') {
+    const l = ladosDe(m);
+    const pecas = (Object.keys(nomesLados) as (keyof LadosTamponamento)[]).filter((k) => l[k]).map((k) => nomesLados[k]);
+    return `Tamponamento (${pecas.join(', ') || 'sem peças'}) · ${material}`;
+  }
   return `${material} · ${descricaoFrente(m)}${resumoInterior(m)}`;
 }
 
@@ -316,7 +330,7 @@ export const moldes: { id: Molde; nome: string; icone: string }[] = [
   { id: 'prateleira', nome: 'Prateleira de parede', icone: '➖' },
   { id: 'livre', nome: 'Peça livre', icone: '▭' },
   { id: 'base', nome: 'Base (rodapé)', icone: '▁' },
-  { id: 'envelope', nome: 'Envelope (tamponamento)', icone: '⊓' },
+  { id: 'envelope', nome: 'Tamponamento', icone: '⊓' },
 ];
 
 export function moduloDoMolde(molde: Molde, nome: string, materiais: Material[]): Modulo {

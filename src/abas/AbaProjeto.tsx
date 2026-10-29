@@ -7,7 +7,7 @@ import { EditorModulo } from '../componentes/editores';
 import { anguloDoCanto, DesenharPlanta, giroDoAngulo, PlantaBaixa } from '../componentes/Planta';
 import { Ver3D } from '../componentes/Ver3D';
 import { novaParede, novoId, quatroParedes, removerDaLista, salvarNaLista } from '../estado';
-import { posicaoLivre, retangulosDasAberturas, retanguloNaTela, sobrepoe, zonasDeCanto } from '../modulos';
+import { espessuraDe, ladosPadrao, moduloDoMolde, posicaoLivre, retangulosDasAberturas, retanguloNaTela, sobrepoe, zonasDeCanto } from '../modulos';
 import { fecharPlanta, paredesDosPontos, type Ponto } from '../planta';
 import { fmtMedida } from '../unidades';
 import type { Abertura, Ambiente, Modulo, Parede, Piso, Projeto } from '../types';
@@ -114,6 +114,30 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
     const copia = { ...m, id: novoId(), x: r.x + r.w };
     atualizar({ modulos: [...modulos, copia] });
     return copia.id;
+  }
+
+  /**
+   * Veste a caixa: laterais dos dois lados, tampo em cima e mais fundo que ela (o avanço dos Ajustes),
+   * na chapa das portas. Encostada na parede, a caixa anda para o lado para caber a lateral.
+   */
+  function tamponar(m: Modulo) {
+    const material = m.materialFrenteId || m.materialId;
+    const e = espessuraDe(material, materiais);
+    const x = Math.max(0, m.x - e);
+    const t: Modulo = {
+      ...moduloDoMolde('envelope', 'Tamponamento', materiais),
+      id: novoId(),
+      paredeId: m.paredeId,
+      materialId: material,
+      x,
+      y: m.y,
+      largura: m.largura + 2 * e,
+      altura: m.altura + e,
+      profundidade: m.profundidade + ajustes.avancoTamponamento,
+      lados: ladosPadrao,
+    };
+    atualizar({ modulos: [...modulos.map((o) => (o.id === m.id ? { ...o, x: x + e } : o)), t] });
+    return t.id;
   }
 
   function excluir(m: Modulo) {
@@ -280,6 +304,7 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
           aoTocar={setEdicao}
           aoDuplicar={duplicar}
           aoExcluir={excluir}
+          aoTamponar={tamponar}
           aoMudarAberturas={mudarAberturas}
           aoEditarAbertura={setEdicaoAbertura}
           selecionado={selecionado}

@@ -236,7 +236,15 @@ export function AbaAjustes({ projeto, atualizar }: Props) {
           <CampoNumero rotulo="Folga de porta" valor={a.folgaPorta} sufixo="mm" aoMudar={(folgaPorta) => mudar({ folgaPorta })} />
           <CampoNumero rotulo="Folga corrediça (lado)" valor={a.folgaCorredica} sufixo="mm" aoMudar={(folgaCorredica) => mudar({ folgaCorredica })} />
         </Linha>
-        <CampoNumero rotulo="Recuo da prateleira" valor={a.recuoPrateleira} sufixo="mm" aoMudar={(recuoPrateleira) => mudar({ recuoPrateleira })} />
+        <Linha>
+          <CampoNumero rotulo="Recuo da prateleira" valor={a.recuoPrateleira} sufixo="mm" aoMudar={(recuoPrateleira) => mudar({ recuoPrateleira })} />
+          <CampoNumero
+            rotulo="Avanço do tamponamento"
+            valor={a.avancoTamponamento}
+            sufixo="mm"
+            aoMudar={(avancoTamponamento) => mudar({ avancoTamponamento })}
+          />
+        </Linha>
       </section>
 
       {/* serra e refilo continuam na conta das chapas, com os valores padrão; o plano de corte (AbaCorte) está fora por enquanto */}

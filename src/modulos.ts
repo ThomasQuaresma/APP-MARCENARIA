@@ -144,7 +144,11 @@ export function pecasDoModulo(m: Modulo, materiais: Material[], a: Ajustes): Pec
   }
 
   add('Lateral', m.materialId, A, P, 2, 1);
-  add('Base/Tampo', m.materialId, vao, P, 2, 1);
+  if (m.travas) {
+    // caixa de pia: em cima, só as duas travas; a pia ocupa o resto
+    add('Base', m.materialId, vao, P, 1, 1);
+    add('Trava', m.materialId, vao, Math.min(a.larguraTrava, P), 2, 1);
+  } else add('Base/Tampo', m.materialId, vao, P, 2, 1);
   if (m.materialFundoId) add('Fundo', m.materialFundoId, A - 4, L - 4, 1);
   // com gavetas, a caixa não tem divisão por dentro
   if (m.frente !== 'gavetas') {

@@ -201,6 +201,16 @@ export function EditorModulo({
             opcaoVazia="Sem fundo"
             aoMudar={(materialFundoId) => mudar({ materialFundoId })}
           />
+          <Opcoes<'tampo' | 'travas'>
+            rotulo="Em cima"
+            valor={m.travas ? 'travas' : 'tampo'}
+            opcoes={[
+              { valor: 'tampo', texto: 'Tampo inteiro' },
+              { valor: 'travas', texto: 'Travas (pia)' },
+            ]}
+            aoMudar={(v) => mudar({ travas: v === 'travas' })}
+          />
+          {m.travas && <p className="dica">Duas travas em cima, na frente e no fundo, com a largura de Ajustes. Entra só o pedaço, não a peça inteira.</p>}
           {/* são cinco tipos de frente: numa lista cabe melhor no celular do que em botões lado a lado */}
           <label className="campo">
             <span>Frente</span>

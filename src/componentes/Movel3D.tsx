@@ -213,7 +213,11 @@ function montarParede(p: Projeto, modulos: Modulo[], guardar: (m: MaterialCena) 
     peca(x, y, 0, e, A, P, corpo);
     peca(x + L - e, y, 0, e, A, P, corpo);
     peca(x + e, y, 0, L - 2 * e, e, P, corpo);
-    peca(x + e, y + A - e, 0, L - 2 * e, e, P, corpo);
+    if (m.travas) {
+      const t = Math.min(a.larguraTrava, P / 2);
+      peca(x + e, y + A - e, 0, L - 2 * e, e, t, corpo);
+      peca(x + e, y + A - e, P - t, L - 2 * e, e, t, corpo);
+    } else peca(x + e, y + A - e, 0, L - 2 * e, e, P, corpo);
     if (m.materialFundoId) peca(x, y, -z0, L, A, z0, daChapa(m.materialFundoId));
     if (m.frente !== 'gavetas') {
       vaosNaCaixa(m, materiais).forEach((v, i) => {

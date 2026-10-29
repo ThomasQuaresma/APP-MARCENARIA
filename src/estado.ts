@@ -70,6 +70,7 @@ export const ajustesPadrao: Ajustes = {
   transpasseCorrer: 40,
   descontoAlturaCorrer: 50,
   avancoTamponamento: 20,
+  larguraTrava: 70,
   fatorVenda: 2.5,
   impostos: 0,
   maoDeObraM2: 0,

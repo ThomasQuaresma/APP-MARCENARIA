@@ -114,7 +114,7 @@ const categorias: Categoria[] = [
         icone: '🍳',
         criar: (mt) => [
           caixa(mt, { nome: 'Balcão gaveteiro', largura: 600, altura: 850, profundidade: 550, frente: 'gavetas', qtdFrente: 3, prateleiras: 0 }),
-          caixa(mt, { nome: 'Balcão pia', x: 600, largura: 1200, altura: 850, profundidade: 550, frente: 'portas', qtdFrente: 2, prateleiras: 1 }),
+          caixa(mt, { nome: 'Balcão pia', x: 600, largura: 1200, altura: 850, profundidade: 550, frente: 'portas', qtdFrente: 2, prateleiras: 1, travas: true }),
           caixa(mt, { nome: 'Balcão', x: 1800, largura: 600, altura: 850, profundidade: 550, frente: 'portas', qtdFrente: 1, prateleiras: 1 }),
           objeto(mt, 'bancada', { largura: 2400, y: 850 }),
           objeto(mt, 'cooktop', { x: 10 }),
@@ -124,7 +124,7 @@ const categorias: Categoria[] = [
           caixa(mt, { nome: 'Aéreo 3', x: 1600, y: 1500, largura: 800, altura: 700, profundidade: 350 }),
         ],
       },
-      um('balcao-pia', 'Balcão pia', '🚰', { nome: 'Balcão pia', largura: 1200, altura: 850, profundidade: 550, frente: 'portas', qtdFrente: 2, prateleiras: 1 }),
+      um('balcao-pia', 'Balcão pia', '🚰', { nome: 'Balcão pia', largura: 1200, altura: 850, profundidade: 550, frente: 'portas', qtdFrente: 2, prateleiras: 1, travas: true }),
       um('balcao-gavetas', 'Balcão gaveteiro', '🗃️', { nome: 'Balcão gaveteiro', largura: 600, altura: 850, profundidade: 550, frente: 'gavetas', qtdFrente: 3, prateleiras: 0 }),
       um('balcao', 'Balcão 2 portas', '🚪', { nome: 'Balcão', largura: 800, altura: 850, profundidade: 550, frente: 'portas', qtdFrente: 2, prateleiras: 1 }),
       um('aereo', 'Aéreo', '⬆️', { nome: 'Aéreo', y: 1500, largura: 800, altura: 700, profundidade: 350 }),
@@ -294,7 +294,7 @@ const categorias: Categoria[] = [
         nome: 'Gabinete com bancada e cuba',
         icone: '🚿',
         criar: (mt) => [
-          caixa(mt, { nome: 'Gabinete', y: 300, largura: 800, altura: 550, profundidade: 450, frente: 'portas', qtdFrente: 2, prateleiras: 0 }),
+          caixa(mt, { nome: 'Gabinete', y: 300, largura: 800, altura: 550, profundidade: 450, frente: 'portas', qtdFrente: 2, prateleiras: 0, travas: true }),
           objeto(mt, 'bancada', { largura: 800, profundidade: 480 }),
           objeto(mt, 'cuba', { x: 200, largura: 400, profundidade: 350 }),
         ],

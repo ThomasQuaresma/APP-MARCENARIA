@@ -245,6 +245,7 @@ export function AbaAjustes({ projeto, atualizar }: Props) {
             aoMudar={(avancoTamponamento) => mudar({ avancoTamponamento })}
           />
         </Linha>
+        <CampoNumero rotulo="Largura da trava (caixa de pia)" valor={a.larguraTrava} sufixo="mm" aoMudar={(larguraTrava) => mudar({ larguraTrava })} />
       </section>
 
       {/* serra e refilo continuam na conta das chapas, com os valores padrão; o plano de corte (AbaCorte) está fora por enquanto */}

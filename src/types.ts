@@ -82,6 +82,8 @@ export interface Modulo {
   frente: Frente;
   qtdFrente: number;
   orientacao: Orientacao;
+  /** Caixa de pia: em cima, duas travas (frente e fundo) no lugar do tampo inteiro. */
+  travas?: boolean;
   /** Só no tamponamento (tipo 'envelope'); sem ele, laterais e tampo. */
   lados?: LadosTamponamento;
 }
@@ -122,6 +124,8 @@ export interface Ajustes {
   descontoAlturaCorrer: number;
   /** Quanto o tamponamento fica mais fundo que a caixa que ele veste, para passar na frente das portas, em mm. */
   avancoTamponamento: number;
+  /** Largura de cada trava da caixa de pia, em mm (7 cm, ou 5 para quem usa assim). */
+  larguraTrava: number;
   /** Preço sugerido = custo dos materiais × fator + custos extras, mais impostos. */
   fatorVenda: number;
   /** Impostos e taxas (nota, maquininha), em % do preço de venda. */

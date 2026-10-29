@@ -1,6 +1,7 @@
 import { empacotar, type ItemCorte, type ResultadoCorte } from './corte';
 import { ferragensDoModulo, pecasDoModulo, somarItens } from './modulos';
 import type { Ajustes, ItemKit, Material, PecaBase, Projeto } from './types';
+import { fmtDim } from './unidades';
 
 export interface PecaLista extends PecaBase {
   origem: string;
@@ -113,4 +114,56 @@ export function calcular(p: Projeto): Orcamento {
     // arredonda para cima, de 10 em 10 reais
     precoSugerido: Math.ceil(semImpostos / (1 - impostos) / 10) * 10,
   };
+}
+
+export interface ItemCompra {
+  nome: string;
+  /** Medida da chapa, para qual chapa é a fita… */
+  detalhe: string;
+  qtd: number;
+  /** "chapa", "m", "un". */
+  unidade: string;
+  total: number;
+}
+
+export interface ListaCompras {
+  chapas: ItemCompra[];
+  fitas: ItemCompra[];
+  ferragens: ItemCompra[];
+  total: number;
+}
+
+/**
+ * O que comprar para fazer o orçamento: as chapas do plano de corte, a fita separada pela chapa
+ * em que vai (cor e espessura) e arredondada para cima em metros inteiros, e as ferragens.
+ */
+export function listaDeCompras(p: Projeto, o: Orcamento): ListaCompras {
+  const a = p.ajustes;
+  const chapas = o.porMaterial.map((r) => ({
+    nome: r.material.nome,
+    detalhe: fmtDim(r.material.comprimento, r.material.largura, a.unidade),
+    qtd: r.chapas.length,
+    unidade: r.chapas.length === 1 ? 'chapa' : 'chapas',
+    total: r.custo,
+  }));
+
+  const fitaPorMaterial = new Map<string, number>();
+  for (const x of todasPecas(p)) {
+    const mm = x.qtd * (x.fitaC * x.comprimento + x.fitaL * x.largura);
+    if (mm > 0) fitaPorMaterial.set(x.materialId, (fitaPorMaterial.get(x.materialId) ?? 0) + mm);
+  }
+  const fitas = [...fitaPorMaterial].map(([id, mm]) => {
+    const metros = Math.ceil((mm / 1000) * (1 + a.margemFita / 100));
+    return {
+      nome: 'Fita de borda',
+      detalhe: `para ${p.materiais.find((m) => m.id === id)?.nome ?? 'chapa sem cadastro'}`,
+      qtd: metros,
+      unidade: 'm',
+      total: metros * a.precoFita,
+    };
+  });
+
+  const ferragens = o.ferragens.map((f) => ({ nome: f.nome, detalhe: '', qtd: f.qtd, unidade: 'un', total: f.qtd * f.preco }));
+  const total = [...chapas, ...fitas, ...ferragens].reduce((s, x) => s + x.total, 0);
+  return { chapas, fitas, ferragens, total };
 }

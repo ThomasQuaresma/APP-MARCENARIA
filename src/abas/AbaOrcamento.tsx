@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { calcular, precoDe, temSugestaoDeMaoDeObra } from '../calculo';
+import { calcular, listaDeCompras, precoDe, temSugestaoDeMaoDeObra } from '../calculo';
 import { CampoNumero, Linha, Opcoes } from '../componentes/campos';
 import { DocumentoOrcamento, textoParaCliente } from '../componentes/Documento';
+import { ListaDeCompras } from '../componentes/ListaCompras';
 import { situacoes } from '../estado';
 import type { Extras, Projeto, Situacao } from '../types';
 import { fmtData, fmtNum, fmtReais } from '../unidades';
@@ -18,6 +19,9 @@ const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um :
 export function AbaOrcamento({ projeto, atualizar, aoDuplicar, aoExcluir }: Props) {
   const o = useMemo(() => calcular(projeto), [projeto]);
   const [documento, setDocumento] = useState(false);
+  const [compras, setCompras] = useState(false);
+  // a lista de compras sai depois que o orçamento foi enviado; recusado não precisa comprar
+  const temCompras = projeto.situacao === 'enviado' || projeto.situacao === 'aprovado';
   const { ajustes: a, extras } = projeto;
   const mudarExtras = (parcial: Partial<Extras>) => atualizar({ extras: { ...extras, ...parcial } });
 
@@ -168,9 +172,15 @@ export function AbaOrcamento({ projeto, atualizar, aoDuplicar, aoExcluir }: Prop
       >
         Enviar orçamento no WhatsApp
       </a>
+      {temCompras && (
+        <button className="btn largo" onClick={() => setCompras(true)}>
+          🛒 Lista de compras
+        </button>
+      )}
 
       {acoes}
 
+      {compras && <ListaDeCompras projeto={projeto} lista={listaDeCompras(projeto, o)} aoFechar={() => setCompras(false)} />}
       {documento && <DocumentoOrcamento projeto={projeto} preco={preco} aoFechar={() => setDocumento(false)} />}
     </>
   );

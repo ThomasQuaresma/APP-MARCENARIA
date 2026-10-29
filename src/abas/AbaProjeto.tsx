@@ -5,7 +5,7 @@ import { CampoNumero, CampoTexto, Linha, Opcoes } from '../componentes/campos';
 import { DesenhoMovel, type Mudanca } from '../componentes/DesenhoMovel';
 import { EditorModulo } from '../componentes/editores';
 import { anguloDoCanto, DesenharPlanta, giroDoAngulo, PlantaBaixa } from '../componentes/Planta';
-import { novaParede, novoId, removerDaLista, salvarNaLista } from '../estado';
+import { novaParede, novoId, quatroParedes, removerDaLista, salvarNaLista } from '../estado';
 import { posicaoLivre, retangulosDasAberturas, retanguloNaTela, sobrepoe, zonasDeCanto } from '../modulos';
 import { fecharPlanta, paredesDosPontos, type Ponto } from '../planta';
 import { fmtMedida } from '../unidades';
@@ -17,13 +17,6 @@ interface Props {
   biblioteca: Modulo[];
   setBiblioteca: Dispatch<SetStateAction<Modulo[]>>;
 }
-
-const formatos = [
-  { valor: 1, texto: 'Reto' },
-  { valor: 2, texto: 'Em L' },
-  { valor: 3, texto: 'Em U' },
-  { valor: 4, texto: 'Fechado' },
-];
 
 const modos = [
   { valor: 'simples' as const, texto: 'Simples' },
@@ -80,27 +73,14 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
     atualizar({ paredes: projeto.fechado ? fecharPlanta(novas) : novas });
   }
 
-  function mudarFormato(qtd: number) {
-    const fechado = qtd === 4;
-    if (qtd === paredes.length && fechado === projeto.fechado) return;
-    const novas = paredes.slice(0, qtd).map((p) => ({ ...p, giro: 90 }));
-    while (novas.length < qtd) novas.push(paredeNova(novas.length + 1));
-    if (fechado) novas[2] = { ...novas[2], largura: novas[0].largura };
-    trocarParedes(novas, fechado);
-  }
-
+  /** O simples é sempre o ambiente fechado de 4 paredes em retângulo. */
   function mudarModo(planta: Projeto['planta']) {
     if (planta === projeto.planta) return;
     if (planta === 'avancada') return atualizar({ planta });
     const retas = paredes.every((p, i) => i === 0 || p.giro === 90);
-    const cabe = paredes.length <= 4 && (!projeto.fechado || paredes.length === 4);
-    if (retas && cabe) return atualizar({ planta });
-    if (!confirm('No modo simples os cantos são de 90°. A planta volta para o formato mais próximo. Continuar?')) return;
-    const qtd = Math.min(paredes.length, projeto.fechado && paredes.length >= 4 ? 4 : 3);
-    const fechado = projeto.fechado && qtd === 4;
-    const novas = paredes.slice(0, qtd).map((p) => ({ ...p, giro: 90 }));
-    if (fechado) novas[2] = { ...novas[2], largura: novas[0].largura };
-    trocarParedes(novas, fechado, { planta });
+    if (retas && projeto.fechado && paredes.length === 4) return atualizar({ planta });
+    if (!confirm('No modo simples o ambiente tem 4 paredes com cantos de 90°. A planta volta para esse formato. Continuar?')) return;
+    trocarParedes(quatroParedes(paredes), true, { planta });
   }
 
   function concluirDesenho(pontos: Ponto[], fechado: boolean) {
@@ -191,14 +171,7 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
       <section className="cartao">
         <CampoTexto rotulo="Cliente" valor={projeto.cliente} aoMudar={(cliente) => atualizar({ cliente })} dica="Nome do cliente" />
         <Opcoes<Projeto['planta']> rotulo="Planta" valor={projeto.planta} opcoes={modos} aoMudar={mudarModo} />
-        {simples ? (
-          <Opcoes<number>
-            rotulo="Formato do ambiente"
-            valor={projeto.fechado ? 4 : paredes.length}
-            opcoes={formatos}
-            aoMudar={mudarFormato}
-          />
-        ) : (
+        {!simples && (
           <>
             {desenhando ? (
               <DesenharPlanta projeto={projeto} aoConcluir={concluirDesenho} aoCancelar={() => setDesenhando(false)} />

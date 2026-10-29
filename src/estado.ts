@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { fecharPlanta } from './planta';
 import type {
   Abertura,
   Ajustes,
@@ -92,6 +93,18 @@ export const novaParede = (numero: number): Parede => ({
   aberturas: [],
 });
 
+/**
+ * A planta simples é sempre um ambiente fechado de 4 paredes em retângulo: as que já existem ficam
+ * (com os módulos, portas e janelas), as que faltam entram, e a de frente para a primeira tem a mesma medida.
+ * O id das novas não é sorteado, para a mesma planta antiga virar sempre as mesmas paredes.
+ */
+export function quatroParedes(paredes: Parede[]): Parede[] {
+  const novas = paredes.slice(0, 4).map((p, i) => ({ ...p, giro: 90, nome: `Parede ${i + 1}` }));
+  while (novas.length < 4) novas.push({ ...novaParede(novas.length + 1), id: `parede-auto-${novas.length + 1}` });
+  novas[2] = { ...novas[2], largura: novas[0].largura };
+  return fecharPlanta(novas);
+}
+
 /** Medidas comuns de porta, janela e passagem; entram no meio da parede. */
 export function novaAbertura(tipo: TipoAbertura, parede: Parede): Abertura {
   const [largura, altura, y] = tipo === 'janela' ? [1200, 1000, 1100] : tipo === 'porta' ? [800, 2100, 0] : [900, 2100, 0];
@@ -116,9 +129,9 @@ export const projetoNovo = (): Projeto => ({
   atualizadoEm: agora(),
   enviadoEm: null,
   cliente: '',
-  paredes: [novaParede(1)],
+  paredes: quatroParedes([novaParede(1)]),
   planta: 'simples',
-  fechado: false,
+  fechado: true,
   ambiente: ambientePadrao,
   materiais: materiaisPadrao,
   modulos: [],
@@ -150,14 +163,19 @@ function migrar(p: Partial<Projeto> & { parede?: { largura: number; altura: numb
   let proximoX = 0;
   // versões anteriores tinham uma parede só, sem id
   const { parede: antiga, ...resto } = p;
-  const paredes = (p.paredes?.length ? p.paredes : [{ ...novaParede(1), ...antiga }]).map((x) => ({
+  const salvas = (p.paredes?.length ? p.paredes : [{ ...novaParede(1), ...antiga }]).map((x) => ({
     ...x,
     giro: x.giro ?? 90,
     aberturas: x.aberturas ?? [],
   }));
+  // a planta simples era reta, em L, em U ou fechada; agora é sempre fechada com 4 paredes
+  const simples = (p.planta ?? 'simples') === 'simples';
+  const precisaFechar = simples && !(p.fechado && salvas.length === 4);
+  const paredes = precisaFechar ? quatroParedes(salvas) : salvas;
   return {
     ...projetoNovo(),
     ...resto,
+    fechado: precisaFechar ? true : (p.fechado ?? false),
     ajustes: migrarAjustes(p.ajustes),
     extras: { ...extrasZerados, ...p.extras },
     ambiente: { ...ambientePadrao, ...p.ambiente },

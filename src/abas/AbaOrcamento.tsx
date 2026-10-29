@@ -1,25 +1,49 @@
 import { useMemo, useState } from 'react';
 import { calcular, precoDe } from '../calculo';
-import { CampoNumero, Linha } from '../componentes/campos';
+import { CampoNumero, Linha, Opcoes } from '../componentes/campos';
 import { DocumentoOrcamento, textoParaCliente } from '../componentes/Documento';
-import type { Extras, Projeto } from '../types';
-import { fmtNum, fmtReais } from '../unidades';
+import { situacoes } from '../estado';
+import type { Extras, Projeto, Situacao } from '../types';
+import { fmtData, fmtNum, fmtReais } from '../unidades';
 
 interface Props {
   projeto: Projeto;
   atualizar: (parcial: Partial<Projeto>) => void;
+  aoDuplicar: () => void;
+  aoExcluir: () => void;
 }
 
 const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
 
-export function AbaOrcamento({ projeto, atualizar }: Props) {
+export function AbaOrcamento({ projeto, atualizar, aoDuplicar, aoExcluir }: Props) {
   const o = useMemo(() => calcular(projeto), [projeto]);
   const [documento, setDocumento] = useState(false);
   const { ajustes: a, extras } = projeto;
   const mudarExtras = (parcial: Partial<Extras>) => atualizar({ extras: { ...extras, ...parcial } });
 
+  const acoes = (
+    <div className="acoes-orcamento">
+      <button className="btn" onClick={aoDuplicar}>
+        Duplicar
+      </button>
+      <button
+        className="btn btn-perigo"
+        onClick={() => {
+          if (confirm(`Excluir o orçamento nº ${projeto.codigo}? Não dá para desfazer.`)) aoExcluir();
+        }}
+      >
+        Excluir
+      </button>
+    </div>
+  );
+
   if (projeto.modulos.length === 0) {
-    return <p className="vazio">Monte o móvel na aba Projeto para fazer o orçamento.</p>;
+    return (
+      <>
+        <p className="vazio">Monte o móvel na aba Projeto para fazer o orçamento.</p>
+        {acoes}
+      </>
+    );
   }
 
   const preco = precoDe(projeto, o);
@@ -29,6 +53,18 @@ export function AbaOrcamento({ projeto, atualizar }: Props) {
 
   return (
     <>
+      <section className="cartao">
+        <div className="situacao-opcoes">
+          <Opcoes<Situacao> rotulo="Situação" valor={projeto.situacao} opcoes={situacoes} aoMudar={(situacao) => atualizar({ situacao })} />
+        </div>
+        {projeto.enviadoEm && (
+          <p className="dica">
+            Os preços deste orçamento ficaram como estavam em {fmtData(projeto.enviadoEm)}. Para usar os preços de hoje, volte para
+            Rascunho.
+          </p>
+        )}
+      </section>
+
       <section className="cartao resumo">
         <h2>Materiais</h2>
         <div className="linha-resumo">
@@ -115,9 +151,12 @@ export function AbaOrcamento({ projeto, atualizar }: Props) {
         href={`https://wa.me/?text=${encodeURIComponent(textoParaCliente(projeto, preco))}`}
         target="_blank"
         rel="noreferrer"
+        onClick={() => projeto.situacao === 'rascunho' && atualizar({ situacao: 'enviado' })}
       >
         Enviar orçamento no WhatsApp
       </a>
+
+      {acoes}
 
       {documento && <DocumentoOrcamento projeto={projeto} preco={preco} aoFechar={() => setDocumento(false)} />}
     </>

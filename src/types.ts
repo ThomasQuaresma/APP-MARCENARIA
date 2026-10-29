@@ -166,7 +166,19 @@ export interface Ambiente {
   piso: Piso;
 }
 
+/** Rascunho usa os preços de hoje; nas outras situações, os preços ficam como estavam no envio. */
+export type Situacao = 'rascunho' | 'enviado' | 'aprovado' | 'recusado';
+
 export interface Projeto {
+  id: string;
+  /** Número do orçamento, em sequência: 1, 2, 3… */
+  codigo: number;
+  situacao: Situacao;
+  /** Datas em ISO. */
+  criadoEm: string;
+  atualizadoEm: string;
+  /** Quando saiu de rascunho; null enquanto é rascunho. */
+  enviadoEm: string | null;
   cliente: string;
   /** 1 parede = reto, 2 = em L, 3 = em U; fechado, a última encontra a primeira. */
   paredes: Parede[];
@@ -181,3 +193,21 @@ export interface Projeto {
   /** Valor combinado com o cliente; null usa o preço sugerido. */
   precoFinal: number | null;
 }
+
+/**
+ * Chapas, preços e ajustes do marceneiro: valem para todos os orçamentos em rascunho.
+ * O próximo código é o número que o próximo orçamento novo recebe.
+ */
+export interface Geral {
+  materiais: Material[];
+  ajustes: Ajustes;
+  proximoCodigo: number;
+}
+
+/**
+ * Como o orçamento fica guardado: sem as chapas e os ajustes, que vêm do Geral.
+ * Depois de enviado, leva junto os preços daquele dia (sem a logo, que é sempre a do Geral).
+ */
+export type OrcamentoSalvo = Omit<Projeto, 'materiais' | 'ajustes'> & {
+  precos?: { materiais: Material[]; ajustes: Ajustes };
+};

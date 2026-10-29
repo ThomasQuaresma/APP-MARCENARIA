@@ -1354,3 +1354,103 @@ main > section {
   padding: 0 6px;
   cursor: pointer;
 }
+
+/* lista de orçamentos */
+
+.topo .voltar {
+  flex: none;
+  border: 0;
+  background: none;
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 0;
+  cursor: pointer;
+}
+
+.filtro-situacao {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  margin: 0 -16px;
+  padding: 0 16px 2px;
+}
+
+.filtro-situacao button {
+  flex: none;
+  border: 1px solid var(--borda);
+  background: var(--cartao);
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.filtro-situacao button.ativo {
+  background: var(--marca);
+  border-color: var(--marca);
+  color: #fff;
+  font-weight: 600;
+}
+
+.orcamento-item {
+  gap: 6px;
+}
+
+.orcamento-linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.orcamento-linha > strong:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selo.situacao-rascunho {
+  background: #eee9e3;
+  color: var(--suave);
+}
+
+.selo.situacao-enviado {
+  background: #e3edf9;
+  color: #1d5aa6;
+}
+
+.selo.situacao-aprovado {
+  background: #e2f4ea;
+  color: var(--whats);
+}
+
+.selo.situacao-recusado {
+  background: #fdecea;
+  color: var(--perigo);
+}
+
+.situacao-opcoes button {
+  font-size: 0.85rem;
+  padding: 10px 2px;
+}
+
+.aviso-congelado {
+  margin: 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: #fff6e0;
+  color: #7a5a00;
+  font-size: 0.92rem;
+}
+
+.acoes-orcamento {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.acoes-orcamento .btn {
+  flex: 1;
+}

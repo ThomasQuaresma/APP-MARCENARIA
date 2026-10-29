@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { descricao, medidasTexto, zonasDeCanto } from '../modulos';
 import type { Projeto } from '../types';
-import { fmtReais } from '../unidades';
+import { fmtData, fmtReais } from '../unidades';
 import { DesenhoMovel } from './DesenhoMovel';
 
 // o 3D é pesado: só baixa quando o orçamento é aberto
@@ -14,7 +14,7 @@ const itensVendidos = (p: Projeto) => p.modulos.filter((m) => m.tipo !== 'objeto
 /** Mensagem do orçamento para mandar ao cliente pelo WhatsApp. */
 export function textoParaCliente(projeto: Projeto, preco: number) {
   const a = projeto.ajustes;
-  const linhas = [`*Orçamento${a.empresa ? ` – ${a.empresa}` : ''}*`];
+  const linhas = [`*Orçamento nº ${projeto.codigo}${a.empresa ? ` – ${a.empresa}` : ''}*`];
   if (projeto.cliente) linhas.push(`Cliente: ${projeto.cliente}`);
   linhas.push('');
   for (const m of itensVendidos(projeto)) {
@@ -34,7 +34,8 @@ interface Props {
 /** Orçamento do jeito que o cliente vê. "Imprimir" também salva em PDF. */
 export function DocumentoOrcamento({ projeto, preco, aoFechar }: Props) {
   const a = projeto.ajustes;
-  const hoje = new Date().toLocaleDateString('pt-BR');
+  // enviado, vale a data do envio (a validade conta dela); rascunho sai com a data de hoje
+  const data = fmtData(projeto.enviadoEm ?? new Date().toISOString());
 
   return createPortal(
     <div className="documento-fundo">
@@ -57,12 +58,12 @@ export function DocumentoOrcamento({ projeto, preco, aoFechar }: Props) {
           </div>
         </header>
 
-        <h1>Orçamento</h1>
+        <h1>Orçamento nº {projeto.codigo}</h1>
         <p className="doc-info">
           <span>
             Cliente: <strong>{projeto.cliente || '—'}</strong>
           </span>
-          <span>Data: {hoje}</span>
+          <span>Data: {data}</span>
         </p>
 
         <Suspense fallback={<p className="dica">Carregando o desenho em 3D…</p>}>

@@ -1,6 +1,6 @@
 import { CampoNumero, CampoTexto, CampoTextoLongo, Linha, Opcoes } from '../componentes/campos';
 import type { ReactNode } from 'react';
-import { extrasZerados, kitCorrerPadrao, kitGavetaPadrao, novaParede } from '../estado';
+import { kitCorrerPadrao, kitGavetaPadrao } from '../estado';
 import type { Ajustes, ItemKit, Projeto, Unidade } from '../types';
 import { fmtReais } from '../unidades';
 
@@ -96,6 +96,11 @@ export function AbaAjustes({ projeto, atualizar }: Props) {
 
   return (
     <>
+      {projeto.enviadoEm && (
+        <p className="aviso-congelado">
+          Este orçamento já foi enviado: preços e medidas que mudar aqui valem só para ele. Os dados da empresa valem para todos.
+        </p>
+      )}
       <section className="cartao">
         <h2>Sua empresa</h2>
         <p className="dica">Aparece no orçamento que vai para o cliente.</p>
@@ -239,17 +244,6 @@ export function AbaAjustes({ projeto, atualizar }: Props) {
           aoMudar={(unidade) => mudar({ unidade })}
         />
       </section>
-
-      <button
-        className="btn btn-perigo largo"
-        onClick={() => {
-          if (confirm('Começar um projeto novo? Cliente, módulos e custos serão apagados. Chapas, modelos e ajustes continuam.')) {
-            atualizar({ cliente: '', paredes: [novaParede(1)], modulos: [], extras: extrasZerados, precoFinal: null });
-          }
-        }}
-      >
-        Novo projeto
-      </button>
     </>
   );
 }

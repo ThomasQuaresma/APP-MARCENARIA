@@ -20,3 +20,6 @@ export function lerNumero(texto: string): number | null {
   const n = Number(t);
   return t !== '' && Number.isFinite(n) ? n : null;
 }
+
+/** Data em ISO para dd/mm/aaaa. */
+export const fmtData = (iso: string) => new Date(iso).toLocaleDateString('pt-BR');

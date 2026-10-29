@@ -1,8 +1,38 @@
-import { useEffect, useState } from 'react';
-import type { Abertura, Ajustes, Ambiente, Extras, ItemKit, Material, Modulo, Parede, Projeto, TipoAbertura, Vao } from './types';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type {
+  Abertura,
+  Ajustes,
+  Ambiente,
+  Extras,
+  Geral,
+  ItemKit,
+  Material,
+  Modulo,
+  OrcamentoSalvo,
+  Parede,
+  Projeto,
+  Situacao,
+  TipoAbertura,
+  Vao,
+} from './types';
 
+/** Versões antigas guardavam um projeto só; hoje ele vira o orçamento nº 1. */
 const CHAVE_PROJETO = 'marcenaria:projeto:v1';
 const CHAVE_BIBLIOTECA = 'marcenaria:biblioteca:v1';
+/** Lista com os ids dos orçamentos; cada orçamento fica na sua própria chave. */
+const CHAVE_INDICE = 'marcenaria:orcamentos:v1';
+const chaveOrcamento = (id: string) => `marcenaria:orcamento:v1:${id}`;
+const CHAVE_GERAL = 'marcenaria:geral:v1';
+const CHAVE_ABERTO = 'marcenaria:aberto:v1';
+
+export const situacoes: { valor: Situacao; texto: string }[] = [
+  { valor: 'rascunho', texto: 'Rascunho' },
+  { valor: 'enviado', texto: 'Enviado' },
+  { valor: 'aprovado', texto: 'Aprovado' },
+  { valor: 'recusado', texto: 'Recusado' },
+];
+
+const agora = () => new Date().toISOString();
 
 /** Sugestão do que vai em cada gaveta; o marceneiro ajusta em Ajustes. */
 export const kitGavetaPadrao = (precoCorredica: number, precoPuxador: number): ItemKit[] => [
@@ -74,6 +104,12 @@ export const materiaisPadrao: Material[] = [
 ];
 
 export const projetoNovo = (): Projeto => ({
+  id: novoId(),
+  codigo: 1,
+  situacao: 'rascunho',
+  criadoEm: agora(),
+  atualizadoEm: agora(),
+  enviadoEm: null,
   cliente: '',
   paredes: [novaParede(1)],
   planta: 'simples',
@@ -156,8 +192,173 @@ function useArmazenado<T>(chave: string, carregar: (salvo: unknown) => T) {
   return [valor, setValor] as const;
 }
 
-export const useProjeto = () =>
-  useArmazenado<Projeto>(CHAVE_PROJETO, (salvo) => (salvo ? migrar(salvo as Partial<Projeto>) : projetoNovo()));
+function ler<T>(chave: string): T | null {
+  try {
+    const salvo = localStorage.getItem(chave);
+    return salvo ? (JSON.parse(salvo) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Devolve false quando o aparelho não deixou guardar (sem espaço, navegação anônima…). */
+function gravar(chave: string, valor: unknown) {
+  try {
+    localStorage.setItem(chave, JSON.stringify(valor));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const geralDe = (salvo: Partial<Geral> | null): Geral => ({
+  materiais: (salvo?.materiais ?? materiaisPadrao).map((m) => ({ ...m, cor: m.cor ?? corPadrao(m.veio) })),
+  ajustes: migrarAjustes(salvo?.ajustes),
+  proximoCodigo: salvo?.proximoCodigo ?? 1,
+});
+
+/** Nome, telefone, logo e condições são da empresa: valem em todos os orçamentos, mesmo nos enviados. */
+const dadosDaEmpresa = ({ empresa, telefone, condicoes, logo }: Ajustes) => ({ empresa, telefone, condicoes, logo });
+
+/** Junta o orçamento guardado com as chapas e os ajustes do Geral, ou com os preços congelados no envio. */
+export function abrirOrcamento(o: OrcamentoSalvo, geral: Geral): Projeto {
+  const { precos, ...resto } = o;
+  return {
+    ...migrar(resto),
+    materiais: precos?.materiais ?? geral.materiais,
+    ajustes: precos ? { ...migrarAjustes(precos.ajustes), ...dadosDaEmpresa(geral.ajustes) } : geral.ajustes,
+  };
+}
+
+/** Separa o projeto em orçamento guardado e Geral; o Geral só muda (de referência) quando algo dele mudou. */
+function guardar(p: Projeto, antes: Projeto, geral: Geral): { orcamento: OrcamentoSalvo; geral: Geral } {
+  const { materiais, ajustes, ...orcamento } = p;
+  const empresa = dadosDaEmpresa(ajustes);
+  const mudouEmpresa = (Object.keys(empresa) as (keyof typeof empresa)[]).some((k) => empresa[k] !== geral.ajustes[k]);
+  const soEmpresa = mudouEmpresa ? { ...geral, ajustes: { ...geral.ajustes, ...empresa } } : geral;
+
+  if (p.situacao !== 'rascunho') {
+    return { orcamento: { ...orcamento, precos: { materiais, ajustes: { ...ajustes, logo: '' } } }, geral: soEmpresa };
+  }
+  // voltando para rascunho, os preços congelados não substituem os de hoje
+  if (antes.situacao !== 'rascunho') return { orcamento, geral: soEmpresa };
+  if (materiais === geral.materiais && ajustes === geral.ajustes) return { orcamento, geral };
+  return { orcamento, geral: { ...geral, materiais, ajustes } };
+}
+
+interface Estado {
+  orcamentos: OrcamentoSalvo[];
+  geral: Geral;
+  abertoId: string | null;
+}
+
+function carregar(): Estado {
+  const ids = ler<string[]>(CHAVE_INDICE);
+  if (ids) {
+    return {
+      orcamentos: ids.map((id) => ler<OrcamentoSalvo>(chaveOrcamento(id))).filter((o): o is OrcamentoSalvo => o !== null),
+      geral: geralDe(ler<Geral>(CHAVE_GERAL)),
+      abertoId: ler<string>(CHAVE_ABERTO),
+    };
+  }
+  // primeira vez com a lista: as chapas e os ajustes do projeto antigo viram os do Geral
+  const antigo = ler<Partial<Projeto>>(CHAVE_PROJETO);
+  if (!antigo) return { orcamentos: [], geral: geralDe(null), abertoId: null };
+  const { materiais, ajustes, ...orcamento } = migrar(antigo);
+  const temConteudo = orcamento.cliente !== '' || orcamento.modulos.length > 0;
+  return {
+    orcamentos: temConteudo ? [orcamento] : [],
+    geral: geralDe({ materiais, ajustes, proximoCodigo: temConteudo ? 2 : 1 }),
+    abertoId: temConteudo ? orcamento.id : null,
+  };
+}
+
+/** Novo número para cópia ou orçamento novo; os preços voltam a ser os de hoje. */
+function comoNovo(o: OrcamentoSalvo, codigo: number): OrcamentoSalvo {
+  const { precos, ...resto } = o;
+  return { ...resto, id: novoId(), codigo, situacao: 'rascunho', criadoEm: agora(), atualizadoEm: agora(), enviadoEm: null };
+}
+
+/** Todos os orçamentos do aparelho, com o que está aberto já pronto para usar. */
+export function useOrcamentos() {
+  const [estado, setEstado] = useState(carregar);
+  const [semEspaco, setSemEspaco] = useState(false);
+  const gravado = useRef<Estado | null>(null);
+
+  // grava só o que mudou: cada orçamento tem sua chave, então mexer em um não regrava os outros
+  useEffect(() => {
+    const antes = gravado.current;
+    gravado.current = estado;
+    let ok = true;
+    if (antes?.geral !== estado.geral) ok = gravar(CHAVE_GERAL, estado.geral) && ok;
+    if (antes?.orcamentos !== estado.orcamentos) {
+      const velhos = new Map((antes?.orcamentos ?? []).map((o) => [o.id, o]));
+      for (const o of estado.orcamentos) {
+        if (velhos.get(o.id) !== o) ok = gravar(chaveOrcamento(o.id), o) && ok;
+        velhos.delete(o.id);
+      }
+      for (const id of velhos.keys()) localStorage.removeItem(chaveOrcamento(id));
+      ok = gravar(CHAVE_INDICE, estado.orcamentos.map((o) => o.id)) && ok;
+      if (!antes && ok) localStorage.removeItem(CHAVE_PROJETO);
+    }
+    if (antes?.abertoId !== estado.abertoId) gravar(CHAVE_ABERTO, estado.abertoId);
+    setSemEspaco(!ok);
+  }, [estado]);
+
+  const aberto = estado.orcamentos.find((o) => o.id === estado.abertoId);
+  const { geral } = estado;
+  const projeto = useMemo(() => (aberto ? abrirOrcamento(aberto, geral) : null), [aberto, geral]);
+
+  const atualizar = useCallback(
+    (parcial: Partial<Projeto>) =>
+      setEstado((e) => {
+        const atual = e.orcamentos.find((o) => o.id === e.abertoId);
+        if (!atual) return e;
+        const antes = abrirOrcamento(atual, e.geral);
+        const depois: Projeto = { ...antes, ...parcial, atualizadoEm: agora() };
+        if (depois.situacao === 'rascunho') depois.enviadoEm = null;
+        else if (antes.situacao === 'rascunho') depois.enviadoEm = agora();
+        const { orcamento, geral } = guardar(depois, antes, e.geral);
+        return { ...e, geral, orcamentos: e.orcamentos.map((o) => (o.id === orcamento.id ? orcamento : o)) };
+      }),
+    [],
+  );
+
+  const abrir = useCallback((id: string | null) => setEstado((e) => ({ ...e, abertoId: id })), []);
+
+  const novo = useCallback(
+    () =>
+      setEstado((e) => {
+        const { materiais, ajustes, ...vazio } = projetoNovo();
+        const o = comoNovo(vazio, e.geral.proximoCodigo);
+        return { orcamentos: [o, ...e.orcamentos], geral: { ...e.geral, proximoCodigo: o.codigo + 1 }, abertoId: o.id };
+      }),
+    [],
+  );
+
+  const duplicar = useCallback(
+    (id: string) =>
+      setEstado((e) => {
+        const original = e.orcamentos.find((o) => o.id === id);
+        if (!original) return e;
+        const o = { ...comoNovo(original, e.geral.proximoCodigo), precoFinal: null };
+        return { orcamentos: [o, ...e.orcamentos], geral: { ...e.geral, proximoCodigo: o.codigo + 1 }, abertoId: o.id };
+      }),
+    [],
+  );
+
+  const excluir = useCallback(
+    (id: string) =>
+      setEstado((e) => ({
+        ...e,
+        orcamentos: e.orcamentos.filter((o) => o.id !== id),
+        abertoId: e.abertoId === id ? null : e.abertoId,
+      })),
+    [],
+  );
+
+  return { orcamentos: estado.orcamentos, geral, projeto, semEspaco, atualizar, abrir, novo, duplicar, excluir };
+}
 
 /** Modelos de módulos salvos pelo marceneiro, reaproveitados entre projetos. */
 export const useBiblioteca = () =>

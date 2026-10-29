@@ -114,6 +114,12 @@ export interface Ajustes {
   fatorVenda: number;
   /** Impostos e taxas (nota, maquininha), em % do preço de venda. */
   impostos: number;
+  /** Sugestão da mão de obra: R$ por m² de frente dos móveis, mais um valor fixo por orçamento. */
+  maoDeObraM2: number;
+  maoDeObraFixa: number;
+  /** Sugestão da instalação, do mesmo jeito. */
+  instalacaoM2: number;
+  instalacaoFixa: number;
   empresa: string;
   telefone: string;
   condicoes: string;
@@ -123,8 +129,9 @@ export interface Ajustes {
 
 /** Custos do projeto além dos materiais, em reais. */
 export interface Extras {
-  maoDeObra: number;
-  instalacao: number;
+  /** null usa a sugestão dos Ajustes; um número é o valor digitado no orçamento. */
+  maoDeObra: number | null;
+  instalacao: number | null;
   frete: number;
   outros: number;
 }

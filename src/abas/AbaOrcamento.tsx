@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { calcular, precoDe } from '../calculo';
+import { calcular, precoDe, temSugestaoDeMaoDeObra } from '../calculo';
 import { CampoNumero, Linha, Opcoes } from '../componentes/campos';
 import { DocumentoOrcamento, textoParaCliente } from '../componentes/Documento';
 import { situacoes } from '../estado';
@@ -98,9 +98,22 @@ export function AbaOrcamento({ projeto, atualizar, aoDuplicar, aoExcluir }: Prop
       <section className="cartao">
         <h2>Mão de obra e outros custos</h2>
         <Linha>
-          <CampoNumero rotulo="Mão de obra" valor={extras.maoDeObra} sufixo="R$" aoMudar={(maoDeObra) => mudarExtras({ maoDeObra })} />
-          <CampoNumero rotulo="Instalação" valor={extras.instalacao} sufixo="R$" aoMudar={(instalacao) => mudarExtras({ instalacao })} />
+          <CampoNumero rotulo="Mão de obra" valor={o.maoDeObra} sufixo="R$" aoMudar={(maoDeObra) => mudarExtras({ maoDeObra })} />
+          <CampoNumero rotulo="Instalação" valor={o.instalacao} sufixo="R$" aoMudar={(instalacao) => mudarExtras({ instalacao })} />
         </Linha>
+        {temSugestaoDeMaoDeObra(a) ? (
+          <p className="dica">
+            Sugestão para {fmtNum(o.area, 2)} m² de móveis: mão de obra {fmtReais(o.maoDeObraSugerida)} e instalação{' '}
+            {fmtReais(o.instalacaoSugerida)}.
+          </p>
+        ) : (
+          <p className="dica">Para o app já sugerir a mão de obra e a instalação, coloque os valores por m² na aba Ajustes.</p>
+        )}
+        {(o.maoDeObra !== o.maoDeObraSugerida || o.instalacao !== o.instalacaoSugerida) && temSugestaoDeMaoDeObra(a) && (
+          <button className="btn" onClick={() => mudarExtras({ maoDeObra: null, instalacao: null })}>
+            Voltar à sugestão
+          </button>
+        )}
         <Linha>
           <CampoNumero rotulo="Frete" valor={extras.frete} sufixo="R$" aoMudar={(frete) => mudarExtras({ frete })} />
           <CampoNumero rotulo="Outros (cola, parafusos…)" valor={extras.outros} sufixo="R$" aoMudar={(outros) => mudarExtras({ outros })} />

@@ -70,13 +70,18 @@ export const ajustesPadrao: Ajustes = {
   descontoAlturaCorrer: 50,
   fatorVenda: 2.5,
   impostos: 0,
+  maoDeObraM2: 0,
+  maoDeObraFixa: 0,
+  instalacaoM2: 0,
+  instalacaoFixa: 0,
   empresa: '',
   telefone: '',
   condicoes: 'Validade do orçamento: 15 dias.\nPrazo de entrega: a combinar.\nPagamento: 50% na aprovação e 50% na entrega.',
   logo: '',
 };
 
-export const extrasZerados: Extras = { maoDeObra: 0, instalacao: 0, frete: 0, outros: 0 };
+// mão de obra e instalação começam pela sugestão dos Ajustes
+export const extrasZerados: Extras = { maoDeObra: null, instalacao: null, frete: 0, outros: 0 };
 
 export const novaParede = (numero: number): Parede => ({
   id: `parede-${numero}`,

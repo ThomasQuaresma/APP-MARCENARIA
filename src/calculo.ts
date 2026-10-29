@@ -1,6 +1,6 @@
 import { empacotar, type ItemCorte, type ResultadoCorte } from './corte';
 import { ferragensDoModulo, pecasDoModulo, somarItens } from './modulos';
-import type { ItemKit, Material, PecaBase, Projeto } from './types';
+import type { Ajustes, ItemKit, Material, PecaBase, Projeto } from './types';
 
 export interface PecaLista extends PecaBase {
   origem: string;
@@ -22,6 +22,13 @@ export interface Orcamento {
   custoFerragens: number;
   /** Chapas + fita + ferragens. */
   custoMateriais: number;
+  /** Área de frente dos móveis, em m², usada na sugestão de mão de obra e instalação. */
+  area: number;
+  maoDeObraSugerida: number;
+  instalacaoSugerida: number;
+  /** O que entra no custo: o valor digitado ou, sem ele, a sugestão. */
+  maoDeObra: number;
+  instalacao: number;
   /** Mão de obra, instalação, frete e outros. */
   custoExtras: number;
   custoTotal: number;
@@ -29,6 +36,17 @@ export interface Orcamento {
 }
 
 export const precoDe = (p: Projeto, o: Orcamento) => p.precoFinal ?? o.precoSugerido;
+
+/** Base e envelope vestem os outros módulos e os equipamentos não são feitos: nenhum entra na área. */
+export const areaDeFrente = (p: Projeto) =>
+  p.modulos
+    .filter((m) => m.tipo !== 'objeto' && m.tipo !== 'base' && m.tipo !== 'envelope')
+    .reduce((s, m) => s + m.largura * m.altura, 0) / 1e6;
+
+/** Sem módulos, não sugere nada: o valor fixo só entra quando já tem o que fazer. */
+const sugestao = (area: number, porM2: number, fixo: number) => (area > 0 ? Math.round(area * porM2 + fixo) : 0);
+
+export const temSugestaoDeMaoDeObra = (a: Ajustes) => a.maoDeObraM2 + a.maoDeObraFixa + a.instalacaoM2 + a.instalacaoFixa > 0;
 
 export const todasPecas = (p: Projeto): PecaLista[] =>
   p.modulos.flatMap((m) => pecasDoModulo(m, p.materiais, p.ajustes).map((x) => ({ ...x, origem: m.nome })));
@@ -64,7 +82,12 @@ export function calcular(p: Projeto): Orcamento {
   const custoFerragens = ferragens.reduce((s, f) => s + f.qtd * f.preco, 0);
   const custoMateriais = custoChapas + custoFita + custoFerragens;
   const e = p.extras;
-  const custoExtras = e.maoDeObra + e.instalacao + e.frete + e.outros;
+  const area = areaDeFrente(p);
+  const maoDeObraSugerida = sugestao(area, a.maoDeObraM2, a.maoDeObraFixa);
+  const instalacaoSugerida = sugestao(area, a.instalacaoM2, a.instalacaoFixa);
+  const maoDeObra = e.maoDeObra ?? maoDeObraSugerida;
+  const instalacao = e.instalacao ?? instalacaoSugerida;
+  const custoExtras = maoDeObra + instalacao + e.frete + e.outros;
   // o fator dá a margem sobre o material; os outros custos entram somados,
   // e os impostos saem do preço de venda
   const semImpostos = custoMateriais * a.fatorVenda + custoExtras;
@@ -80,6 +103,11 @@ export function calcular(p: Projeto): Orcamento {
     ferragens,
     custoFerragens,
     custoMateriais,
+    area,
+    maoDeObraSugerida,
+    instalacaoSugerida,
+    maoDeObra,
+    instalacao,
     custoExtras,
     custoTotal: custoMateriais + custoExtras,
     // arredonda para cima, de 10 em 10 reais

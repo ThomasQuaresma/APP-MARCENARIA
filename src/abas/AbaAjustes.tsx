@@ -151,6 +151,22 @@ export function AbaAjustes({ projeto, atualizar }: Props) {
       </section>
 
       <section className="cartao">
+        <h2>Mão de obra e instalação</h2>
+        <p className="dica">
+          O orçamento já vem com estes valores, calculados pela área de frente dos móveis (largura × altura). Dá para trocar em cada
+          orçamento.
+        </p>
+        <Linha>
+          <CampoNumero rotulo="Mão de obra por m²" valor={a.maoDeObraM2} sufixo="R$" aoMudar={(maoDeObraM2) => mudar({ maoDeObraM2 })} />
+          <CampoNumero rotulo="Mais um valor fixo" valor={a.maoDeObraFixa} sufixo="R$" aoMudar={(maoDeObraFixa) => mudar({ maoDeObraFixa })} />
+        </Linha>
+        <Linha>
+          <CampoNumero rotulo="Instalação por m²" valor={a.instalacaoM2} sufixo="R$" aoMudar={(instalacaoM2) => mudar({ instalacaoM2 })} />
+          <CampoNumero rotulo="Mais um valor fixo" valor={a.instalacaoFixa} sufixo="R$" aoMudar={(instalacaoFixa) => mudar({ instalacaoFixa })} />
+        </Linha>
+      </section>
+
+      <section className="cartao">
         <h2>Ferragens</h2>
         <Linha>
           <CampoNumero rotulo="Dobradiça" valor={a.precoDobradica} sufixo="R$" aoMudar={(precoDobradica) => mudar({ precoDobradica })} />

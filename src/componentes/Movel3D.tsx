@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Box3,
+  CanvasTexture,
   BoxGeometry,
   Color,
   CylinderGeometry,
@@ -15,8 +16,10 @@ import {
   PCFSoftShadowMap,
   PerspectiveCamera,
   PlaneGeometry,
+  RepeatWrapping,
   Scene,
   Shape,
+  SRGBColorSpace,
   ShapeGeometry,
   Vector2,
   Vector3,
@@ -32,6 +35,51 @@ import { fmtMedida } from '../unidades';
 import { coresObjeto } from './DesenhoMovel';
 
 const coresPiso: Record<Piso, string> = { madeira: '#b8875a', porcelanato: '#e4e0da', cimento: '#a9a6a1' };
+
+/** Mármore branco com veios cinza, desenhado num canvas; sempre o mesmo desenho (sorteio com semente fixa). */
+function texturaMarmore() {
+  const tela = document.createElement('canvas');
+  tela.width = tela.height = 512;
+  const c = tela.getContext('2d');
+  if (c) {
+    let semente = 7;
+    const sorteio = () => {
+      semente = (semente * 16807) % 2147483647;
+      return semente / 2147483647;
+    };
+    c.fillStyle = '#f3f1ed';
+    c.fillRect(0, 0, 512, 512);
+    // manchas suaves, para não ficar branco chapado
+    for (let i = 0; i < 40; i++) {
+      c.fillStyle = `rgba(200, 196, 190, ${0.05 + sorteio() * 0.08})`;
+      c.beginPath();
+      c.arc(sorteio() * 512, sorteio() * 512, 20 + sorteio() * 70, 0, Math.PI * 2);
+      c.fill();
+    }
+    // veios: linhas finas e tortas, atravessando a pedra na diagonal
+    c.lineCap = 'round';
+    for (let i = 0; i < 14; i++) {
+      c.strokeStyle = `rgba(95, 92, 88, ${0.45 + sorteio() * 0.4})`;
+      c.lineWidth = 1.2 + sorteio() * 3;
+      c.beginPath();
+      let px = sorteio() * 512;
+      let py = -20;
+      c.moveTo(px, py);
+      while (py < 532) {
+        const nx = px + (sorteio() - 0.35) * 70;
+        const ny = py + 30 + sorteio() * 50;
+        c.quadraticCurveTo(px + (sorteio() - 0.5) * 60, (py + ny) / 2, nx, ny);
+        px = nx;
+        py = ny;
+      }
+      c.stroke();
+    }
+  }
+  const t = new CanvasTexture(tela);
+  t.colorSpace = SRGBColorSpace;
+  t.wrapS = t.wrapT = RepeatWrapping;
+  return t;
+}
 
 /** Retângulo no plano, de (x, y) até (x + w, y + h). */
 function retangulo(x: number, y: number, w: number, h: number) {
@@ -107,6 +155,12 @@ function montarParede(p: Projeto, modulos: Modulo[], guardar: (m: MaterialCena) 
     return m;
   };
   const daChapa = (id: string | null) => acabamento(materiais.find((x) => x.id === id)?.cor ?? '#eeeeee');
+  let marmore: MeshStandardMaterial | null = null;
+  /** A pedra é sempre de mármore branco, com veios: a textura sai de um desenho feito na hora. */
+  const pedra = () => {
+    marmore ??= guardar(new MeshStandardMaterial({ map: texturaMarmore(), roughness: 0.22 })) as MeshStandardMaterial;
+    return marmore;
+  };
 
   const colocar = (geo: BufferGeometry, material: MeshStandardMaterial, x: number, y: number, z: number, borda: boolean) => {
     const mesh = new Mesh(geo, material);
@@ -142,7 +196,7 @@ function montarParede(p: Projeto, modulos: Modulo[], guardar: (m: MaterialCena) 
       const vidro = acabamento('#1d2228', 0.15);
       switch (m.objeto) {
         case 'bancada':
-          peca(x, y, 0, L, A, P, acabamento(cor, 0.35));
+          peca(x, y, 0, L, A, P, pedra());
           break;
         case 'cuba': {
           // a cuba fica embutida na bancada, longe da parede; a torneira fica atrás dela
@@ -236,6 +290,8 @@ function montarParede(p: Projeto, modulos: Modulo[], guardar: (m: MaterialCena) 
     const f = a.folgaPorta;
     const frente = daChapa(m.materialFrenteId);
     const eFrente = espessuraDe(m.materialFrenteId, materiais);
+    // pedra do balcão: do fundo da parede até 2 cm na frente das portas
+    if (m.pedra) peca(x, y + A, -z0, L, 30, z0 + P + eFrente + 20, pedra());
 
     if (m.frente === 'portas' && n > 0) {
       const dw = (L - f * (n + 1)) / n;
@@ -433,7 +489,10 @@ export default function Movel3D({ projeto, reserva }: Props) {
       cena.traverse((o) => {
         if (o instanceof Mesh || o instanceof LineSegments) o.geometry.dispose();
       });
-      materiaisCena.forEach((m) => m.dispose());
+      materiaisCena.forEach((m) => {
+        if (m instanceof MeshStandardMaterial) m.map?.dispose();
+        m.dispose();
+      });
       renderer.dispose();
       el.removeChild(renderer.domElement);
     };

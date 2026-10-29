@@ -1464,3 +1464,10 @@ main > section {
   stroke: var(--marca);
   stroke-width: 2.5;
 }
+
+/* pedra de mármore em cima do balcão, só visual */
+
+.movel .pedra {
+  fill: #ebe8e3;
+  stroke: #9c968e;
+}

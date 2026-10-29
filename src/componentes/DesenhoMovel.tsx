@@ -78,8 +78,8 @@ interface Props {
   aoExcluir?: (m: Modulo) => void;
   /** Veste a caixa com o tamponamento e devolve o id dele, que passa a ficar selecionado. */
   aoTamponar?: (m: Modulo) => string;
-  /** Põe a pedra em cima do balcão (só visual) e devolve o id dela. */
-  aoPorPedra?: (m: Modulo) => string;
+  /** Liga ou desliga a pedra em cima do balcão (só visual). */
+  aoTrocarPedra?: (m: Modulo) => void;
   /** Portas e janelas mudadas no desenho (arrastadas, duplicadas, excluídas). */
   aoMudarAberturas?: (aberturas: Abertura[]) => void;
   aoEditarAbertura?: (a: Abertura) => void;
@@ -114,7 +114,7 @@ const comRetanguloAbertura = (a: Abertura, r: Retangulo): Abertura => ({ ...a, x
 const cursorDo = ({ sx, sy }: Canto) => (sx === 0 ? 'ns-resize' : sy === 0 ? 'ew-resize' : sx === sy ? 'nesw-resize' : 'nwse-resize');
 
 export function DesenhoMovel(props: Props) {
-  const { modulos, materiais, parede, zonas = [], unidade: u, aoMudar, aoTocar, aoDuplicar, aoExcluir, aoTamponar, aoPorPedra, aoMudarAberturas, aoEditarAbertura } =
+  const { modulos, materiais, parede, zonas = [], unidade: u, aoMudar, aoTocar, aoDuplicar, aoExcluir, aoTamponar, aoTrocarPedra, aoMudarAberturas, aoEditarAbertura } =
     props;
   const svg = useRef<SVGSVGElement>(null);
   const idHachura = `hachura-${useId().replace(/:/g, '')}`;
@@ -372,9 +372,9 @@ export function DesenhoMovel(props: Props) {
             </button>
           )}
           {/* balcão: caixa que termina na altura de bancada */}
-          {aoPorPedra && sel.tipo === 'caixa' && sel.y + sel.altura <= 1100 && (
-            <button type="button" className="btn" onClick={() => setSelecionado(aoPorPedra(original(sel.id) ?? sel))}>
-              + Pedra
+          {aoTrocarPedra && sel.tipo === 'caixa' && sel.y + sel.altura <= 1100 && (
+            <button type="button" className="btn" onClick={() => aoTrocarPedra(original(sel.id) ?? sel)}>
+              {sel.pedra ? 'Tirar pedra' : '+ Pedra'}
             </button>
           )}
           {aoTamponar && sel.tipo === 'caixa' && (
@@ -596,7 +596,7 @@ export const coresObjeto: Record<TipoObjeto, string> = {
   fogao: '#cfd2d6',
   micro: '#2f2f2f',
   forno: '#2f2f2f',
-  bancada: '#4a4744',
+  bancada: '#e9e6e1',
 };
 
 /** Desenha um módulo visto de frente: portas, gavetas ou o vão com prateleiras. */
@@ -695,6 +695,8 @@ function Figura({ m, r, materiais, escala, aberto = false }: FiguraProps) {
 
   return (
     <>
+      {/* a pedra do balcão fica por cima da caixa, com 3 cm */}
+      {m.pedra && m.tipo === 'caixa' && <rect x={r.x} y={topo - 30} width={r.w} height={30} className="pedra" />}
       <rect
         x={r.x}
         y={topo}

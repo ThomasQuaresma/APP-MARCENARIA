@@ -82,6 +82,8 @@ export interface Modulo {
   frente: Frente;
   qtdFrente: number;
   orientacao: Orientacao;
+  /** Balcão com pedra de mármore em cima: só aparece no desenho e no 3D, não entra no custo. */
+  pedra?: boolean;
   /** Caixa de pia: em cima, duas travas (frente e fundo) no lugar do tampo inteiro. */
   travas?: boolean;
   /** Só no tamponamento (tipo 'envelope'); sem ele, laterais e tampo. */

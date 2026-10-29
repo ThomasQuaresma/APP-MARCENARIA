@@ -91,7 +91,7 @@ export const nomesObjeto: Record<TipoObjeto, string> = {
   fogao: 'Fogão',
   micro: 'Micro-ondas',
   forno: 'Forno',
-  bancada: 'Bancada de pedra',
+  bancada: 'Pedra (mármore)',
 };
 
 /**

@@ -5,6 +5,7 @@ import { CampoNumero, CampoTexto, Linha, Opcoes } from '../componentes/campos';
 import { DesenhoMovel, type Mudanca } from '../componentes/DesenhoMovel';
 import { EditorModulo } from '../componentes/editores';
 import { anguloDoCanto, DesenharPlanta, giroDoAngulo, PlantaBaixa } from '../componentes/Planta';
+import { Ver3D } from '../componentes/Ver3D';
 import { novaParede, novoId, quatroParedes, removerDaLista, salvarNaLista } from '../estado';
 import { posicaoLivre, retangulosDasAberturas, retanguloNaTela, sobrepoe, zonasDeCanto } from '../modulos';
 import { fecharPlanta, paredesDosPontos, type Ponto } from '../planta';
@@ -34,6 +35,7 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
   const [edicaoAbertura, setEdicaoAbertura] = useState<Abertura | null>(null);
   const [selecionado, setSelecionado] = useState<string | null>(null);
   const [desenhando, setDesenhando] = useState(false);
+  const [ver3d, setVer3d] = useState(false);
   const simples = projeto.planta === 'simples';
 
   if (materiais.length === 0) {
@@ -265,6 +267,9 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
           )}
           <CampoNumero rotulo="Altura da parede" valor={parede.altura} unidade={u} aoMudar={(altura) => mudarParede({ altura })} />
         </Linha>
+        <button type="button" className="btn" onClick={() => setVer3d(true)}>
+          🧊 Ver em 3D
+        </button>
         <DesenhoMovel
           modulos={daParede}
           materiais={materiais}
@@ -330,6 +335,8 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
           aoSalvarModelo={(m) => setBiblioteca((l) => [...l, { ...m, id: novoId(), x: 0, y: 0 }])}
         />
       )}
+
+      {ver3d && <Ver3D projeto={projeto} aoFechar={() => setVer3d(false)} />}
 
       {edicaoAbertura && (
         <EditorAbertura

@@ -126,6 +126,15 @@ export function DesenhoMovel(props: Props) {
   /** Módulos com as portas abertas no desenho. */
   const [abertos, setAbertos] = useState<string[]>([]);
   const editavel = !!aoMudar;
+  /** Parte do desenho que aparece com zoom; null mostra tudo. */
+  const [vista, setVista] = useState<Limites | null>(null);
+  /** Dedos (ou o mouse) apertados no desenho, para a pinça de zoom. */
+  const dedos = useRef(new Map<number, { x: number; y: number }>());
+  /** Pinça com dois dedos, ou um dedo arrastando o fundo com zoom, guardando de onde começou. */
+  const gesto = useRef<{ ponto: { x: number; y: number }; distancia: number; vista: Limites; px: number } | null>(null);
+
+  // outra parede começa vendo tudo
+  useEffect(() => setVista(null), [parede.id]);
 
   // no celular, o toque num módulo ou numa alça não pode rolar a página, senão o navegador cancela o arraste
   useEffect(() => {
@@ -146,7 +155,54 @@ export function DesenhoMovel(props: Props) {
   const aberturas = parede.aberturas.map((a) => (arraste?.id === a.id ? comRetanguloAbertura(a, arraste.ret) : a));
   const limites = arraste?.limites ?? limitesDe(rets, parede);
   const escala = Math.max(limites.w, limites.h);
+  const v = vista ?? limites;
+  /** Tamanho do que aparece na tela: com zoom, as alças, as cotas e o ímã dos cantos ficam proporcionais a ele. */
+  const escalaVista = Math.max(v.w, v.h);
   const retParede: Retangulo = { x: 0, y: 0, w: parede.largura, h: parede.altura };
+
+  /** Zoom (fator > 1 aproxima) mantendo parado o ponto do desenho que está em (rx, ry) da tela, de 0 a 1. */
+  function zoomEm(base: Limites, fator: number, ponto: { x: number; y: number }, rx: number, ry: number): Limites | null {
+    const w = Math.min(limites.w, Math.max(limites.w / 12, base.w / fator));
+    if (w >= limites.w * 0.98) return null;
+    const h = (w * limites.h) / limites.w;
+    // não deixa a vista sair muito do desenho
+    const x = Math.min(Math.max(ponto.x - rx * w, limites.x), limites.x + limites.w - w);
+    const y = Math.min(Math.max(ponto.y - ry * h, limites.y), limites.y + limites.h - h);
+    return { x, y, w, h };
+  }
+
+  /** Posição do dedo dentro do desenho, de 0 a 1, e o ponto do desenho embaixo dele (na vista dada). */
+  function naTela(clienteX: number, clienteY: number, base: Limites) {
+    const caixa = svg.current?.getBoundingClientRect();
+    if (!caixa) return { rx: 0.5, ry: 0.5, ponto: { x: base.x + base.w / 2, y: base.y + base.h / 2 } };
+    // o viewBox fica centralizado e inteiro dentro do svg (preserveAspectRatio padrão)
+    const s = Math.min(caixa.width / base.w, caixa.height / base.h);
+    const sobraX = (caixa.width - base.w * s) / 2;
+    const sobraY = (caixa.height - base.h * s) / 2;
+    const rx = (clienteX - caixa.left - sobraX) / (base.w * s);
+    const ry = (clienteY - caixa.top - sobraY) / (base.h * s);
+    return { rx, ry, ponto: { x: base.x + rx * base.w, y: base.y + ry * base.h } };
+  }
+
+  function comecarGesto() {
+    const pts = [...dedos.current.values()];
+    const meio = pts.length > 1 ? { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 } : pts[0];
+    const distancia = pts.length > 1 ? Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) : 0;
+    gesto.current = { ponto: naTela(meio.x, meio.y, v).ponto, distancia, vista: v, px: pts.length };
+  }
+
+  function moverGesto() {
+    const g = gesto.current;
+    const pts = [...dedos.current.values()];
+    if (!g || pts.length !== g.px) return;
+    const meio = pts.length > 1 ? { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 } : pts[0];
+    const fator = pts.length > 1 && g.distancia > 0 ? Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) / g.distancia : 1;
+    // o ponto do desenho que estava embaixo dos dedos continua embaixo deles: zoom e arrastar juntos
+    const { rx, ry } = naTela(meio.x, meio.y, g.vista);
+    setVista(zoomEm(g.vista, fator, g.ponto, rx, ry));
+  }
+
+  const botaoZoom = (fator: number) => setVista(zoomEm(v, fator, { x: v.x + v.w / 2, y: v.y + v.h / 2 }, 0.5, 0.5));
 
   const larguraTotal = rets.length ? Math.max(...rets.map((r) => r.x + r.w)) - Math.min(...rets.map((r) => r.x)) : 0;
   const alturaTotal = rets.length ? Math.max(...rets.map((r) => r.y + r.h)) : 0;
@@ -167,7 +223,8 @@ export function DesenhoMovel(props: Props) {
   };
 
   function iniciar(e: EventoPonteiro<SVGGElement>, m: Modulo | Abertura, canto: Canto | null) {
-    if (!aoMudar || arraste) return;
+    // o segundo dedo é da pinça de zoom, não arrasta nada
+    if (!aoMudar || arraste || dedos.current.size > 1) return;
     svg.current?.setPointerCapture(e.pointerId);
     const ehAbertura = !('nome' in m);
     const r = ehAbertura ? retanguloDaAbertura(m) : retanguloNaTela(m, materiais);
@@ -196,7 +253,8 @@ export function DesenhoMovel(props: Props) {
     const dx = p.x - arraste.inicioSvg.x;
     const dy = -(p.y - arraste.inicioSvg.y);
     const o = arraste.original;
-    const tolerancia = escala / 30;
+    // com zoom, o ímã encolhe junto: dá para deixar no meio, longe dos cantos
+    const tolerancia = escalaVista / 40;
     // encaixa também nos cantos e no teto da parede, e nos móveis que vêm da parede vizinha
     const outros = [
       retParede,
@@ -276,23 +334,71 @@ export function DesenhoMovel(props: Props) {
     } else if (!arraste.canto && arraste.jaSelecionado) aoTocar?.(m);
   }
 
-  const fonteCota = escala / 42;
-  const afastamento = escala / 36;
+  const fonteCota = escalaVista / 42;
+  const afastamento = escalaVista / 36;
+
+  const soltarDedo = (e: EventoPonteiro<SVGSVGElement>) => {
+    dedos.current.delete(e.pointerId);
+    gesto.current = null;
+    // sobrou um dedo da pinça: ele continua arrastando a vista
+    if (dedos.current.size === 1 && vista) comecarGesto();
+  };
 
   return (
     <figure className="movel">
+      {editavel && (
+        <div className="zoom-botoes">
+          <button type="button" className="btn" aria-label="Aproximar" onClick={() => botaoZoom(1.6)}>
+            +
+          </button>
+          <button type="button" className="btn" aria-label="Afastar" onClick={() => botaoZoom(1 / 1.6)} disabled={!vista}>
+            −
+          </button>
+          {vista && (
+            <button type="button" className="btn" onClick={() => setVista(null)}>
+              Ver tudo
+            </button>
+          )}
+        </div>
+      )}
       <svg
         ref={svg}
-        viewBox={`${limites.x} ${limites.y} ${limites.w} ${limites.h}`}
+        viewBox={`${v.x} ${v.y} ${v.w} ${v.h}`}
         role="img"
         aria-label="Desenho do móvel visto de frente"
-        onPointerDown={(e) => {
-          // tocar fora dos módulos tira a seleção
-          if (editavel && e.target instanceof Element && !e.target.closest('.mod, .alca, .abertura.arrastavel')) setSelecionado(null);
+        // sem zoom, um dedo no fundo rola a página; com zoom, ele arrasta o desenho
+        // com zoom, o que passa da borda não aparece por cima do resto da tela
+        style={editavel ? { touchAction: vista ? 'none' : 'pan-y', overflow: vista ? 'hidden' : undefined } : undefined}
+        onPointerDownCapture={(e) => {
+          if (!editavel) return;
+          dedos.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          // o desenho fica com o dedo até ele soltar, mesmo saindo de cima dele: assim nenhum dedo fica "esquecido"
+          svg.current?.setPointerCapture(e.pointerId);
+          if (dedos.current.size === 2) {
+            // começou a pinça: desfaz o arraste do primeiro dedo, sem mexer no módulo
+            setArraste(null);
+            comecarGesto();
+          }
         }}
-        onPointerMove={mover}
-        onPointerUp={soltar}
-        onPointerCancel={() => setArraste(null)}
+        onPointerDown={(e) => {
+          if (!editavel || !(e.target instanceof Element) || e.target.closest('.mod, .alca, .abertura.arrastavel')) return;
+          // tocar fora dos módulos tira a seleção; com zoom, arrasta o desenho
+          setSelecionado(null);
+          if (vista && dedos.current.size === 1) comecarGesto();
+        }}
+        onPointerMove={(e) => {
+          if (dedos.current.has(e.pointerId)) dedos.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          if (gesto.current) moverGesto();
+          else mover(e);
+        }}
+        onPointerUp={(e) => {
+          if (!gesto.current) soltar(e);
+          soltarDedo(e);
+        }}
+        onPointerCancel={(e) => {
+          setArraste(null);
+          soltarDedo(e);
+        }}
       >
         <defs>
           <pattern id={idHachura} width={escala / 60} height={escala / 60} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
@@ -346,8 +452,8 @@ export function DesenhoMovel(props: Props) {
                 }}
               >
                 {/* círculo grande e invisível, do tamanho de um dedo */}
-                <circle cx={cx} cy={cy} r={escala / 26} className="alca-toque" />
-                <circle cx={cx} cy={cy} r={escala / 110} className="alca-ponto" />
+                <circle cx={cx} cy={cy} r={escalaVista / 26} className="alca-toque" />
+                <circle cx={cx} cy={cy} r={escalaVista / 110} className="alca-ponto" />
               </g>
             );
           })}

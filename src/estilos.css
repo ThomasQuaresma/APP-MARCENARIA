@@ -955,8 +955,9 @@ main > section {
   gap: 8px;
 }
 
+/* o nome numa linha e os botões sempre embaixo dele, no mesmo lugar */
 .barra-selecao strong {
-  flex: 1;
+  flex: 1 1 100%;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1497,4 +1498,26 @@ main > section {
   background: var(--perigo);
   border-color: var(--perigo);
   color: #fff;
+}
+
+/* zoom do desenho: botões no canto, por cima do desenho */
+
+.movel {
+  position: relative;
+}
+
+.zoom-botoes {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  display: flex;
+  gap: 4px;
+}
+
+.zoom-botoes .btn {
+  padding: 4px 10px;
+  min-width: 34px;
+  font-size: 1rem;
+  background: rgba(255, 255, 255, 0.92);
 }

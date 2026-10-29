@@ -28,7 +28,7 @@ import {
   type Material as MaterialCena,
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { arrumacaoDoVao, espessuraDe, ladosDe, larguraFolhaCorrer, TRILHO_CORRER, vaosNaCaixa } from '../modulos';
+import { arrumacaoDoVao, compartilharLaterais, espessuraDe, ladosDe, larguraFolhaCorrer, TRILHO_CORRER, vaosNaCaixa } from '../modulos';
 import { radianos, tracado } from '../planta';
 import type { Modulo, Parede, Piso, Projeto } from '../types';
 import { fmtMedida } from '../unidades';
@@ -138,8 +138,9 @@ function montarParedeComAberturas(parede: Parede, corParede: MaterialCena, guard
  * Monta os módulos de uma parede, peça por peça, em mm: x ao longo da parede a partir do canto
  * esquerdo, y para cima a partir do chão, z saindo da parede em direção a quem olha.
  */
-function montarParede(p: Projeto, modulos: Modulo[], guardar: (m: MaterialCena) => MaterialCena) {
+function montarParede(p: Projeto, daParede: Modulo[], guardar: (m: MaterialCena) => MaterialCena) {
   const { materiais, ajustes: a } = p;
+  const modulos = compartilharLaterais(daParede, materiais);
   const grupo = new Group();
   const acabamentos = new Map<string, MeshStandardMaterial>();
   const contorno = guardar(new LineBasicMaterial({ color: 0x5a4632, transparent: true, opacity: 0.35 }));
@@ -251,8 +252,8 @@ function montarParede(p: Projeto, modulos: Modulo[], guardar: (m: MaterialCena) 
       const l = ladosDe(m);
       const esq = l.esquerda ? e : 0;
       const entre = L - esq - (l.direita ? e : 0);
-      if (l.esquerda) peca(x, y, 0, e, A, P, corpo);
-      if (l.direita) peca(x + L - e, y, 0, e, A, P, corpo);
+      if (l.esquerda && !l.doVizinho?.esquerda) peca(x, y, 0, e, A, P, corpo);
+      if (l.direita && !l.doVizinho?.direita) peca(x + L - e, y, 0, e, A, P, corpo);
       if (l.tampo) peca(x + esq, y + A - e, 0, entre, e, P, corpo);
       if (l.fundo) peca(x + esq, y, 0, entre, A - (l.tampo ? e : 0), e, corpo);
       continue;

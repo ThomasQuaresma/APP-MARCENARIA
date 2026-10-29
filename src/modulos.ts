@@ -130,7 +130,8 @@ export function pecasDoModulo(m: Modulo, materiais: Material[], a: Ajustes): Pec
     // as laterais passam, o tampo fica entre elas e o fundo entre as laterais, embaixo do tampo
     const l = ladosDe(m);
     const entre = L - e * (Number(l.esquerda) + Number(l.direita));
-    add('Lateral tamponamento', m.materialId, A, P, Number(l.esquerda) + Number(l.direita), 1);
+    const laterais = Number(l.esquerda && !l.doVizinho?.esquerda) + Number(l.direita && !l.doVizinho?.direita);
+    add('Lateral tamponamento', m.materialId, A, P, laterais, 1);
     if (l.tampo) add('Tampo tamponamento', m.materialId, entre, P, 1, 1);
     if (l.fundo) add('Fundo tamponamento (painel)', m.materialId, A - (l.tampo ? e : 0), entre, 1);
     return pecas;
@@ -266,6 +267,49 @@ export function arrumacaoDoVao(v: Vao, A: number, e: number) {
 export const ladosPadrao: LadosTamponamento = { esquerda: true, direita: true, tampo: true, fundo: false };
 export const ladosDe = (m: Modulo) => m.lados ?? ladosPadrao;
 
+/** Onde fica a lateral do tamponamento, na tela; null quando ela não existe. */
+export function lateralDoTamponamento(m: Modulo, lado: 'esquerda' | 'direita', materiais: Material[]): Retangulo | null {
+  if (m.tipo !== 'envelope' || !ladosDe(m)[lado]) return null;
+  const e = espessuraDe(m.materialId, materiais);
+  return { x: lado === 'esquerda' ? m.x : m.x + m.largura - e, w: e, y: m.y, h: m.altura };
+}
+
+/** As laterais de todos os tamponamentos: os módulos novos desviam delas. */
+export const lateraisDosTamponamentos = (modulos: Modulo[], materiais: Material[]) =>
+  modulos.flatMap((m) => [lateralDoTamponamento(m, 'esquerda', materiais), lateralDoTamponamento(m, 'direita', materiais)]).filter(
+    (r): r is Retangulo => r !== null,
+  );
+
+/**
+ * Tamponamentos encostados dividem a lateral: onde a lateral direita de um cai em cima da esquerda do outro,
+ * só uma fica (a mais alta; na mesma altura, a do tamponamento da esquerda). A outra vira "do vizinho".
+ * É calculado a cada vez, então afastar os módulos devolve a lateral de cada um.
+ */
+export function compartilharLaterais(modulos: Modulo[], materiais: Material[]): Modulo[] {
+  const envs = modulos.filter((m) => m.tipo === 'envelope');
+  if (envs.length < 2) return modulos;
+  const lateral = (m: Modulo, lado: 'esquerda' | 'direita') => lateralDoTamponamento(m, lado, materiais);
+  const vizinho = new Map<string, { esquerda?: boolean; direita?: boolean }>();
+  const marcar = (m: Modulo, lado: 'esquerda' | 'direita') => vizinho.set(m.id, { ...vizinho.get(m.id), [lado]: true });
+  for (const a of envs) {
+    for (const b of envs) {
+      if (a === b || a.paredeId !== b.paredeId) continue;
+      const dir = lateral(a, 'direita');
+      const esq = lateral(b, 'esquerda');
+      if (!dir || !esq) continue;
+      const juntasX = Math.min(dir.x + dir.w, esq.x + esq.w) - Math.max(dir.x, esq.x) > 1;
+      const juntasY = Math.min(dir.y + dir.h, esq.y + esq.h) - Math.max(dir.y, esq.y) > 1;
+      if (!juntasX || !juntasY) continue;
+      if (esq.h > dir.h + 1) marcar(a, 'direita');
+      else marcar(b, 'esquerda');
+    }
+  }
+  return modulos.map((m) => {
+    const doVizinho = vizinho.get(m.id);
+    return doVizinho ? { ...m, lados: { ...ladosDe(m), doVizinho } } : m;
+  });
+}
+
 /** Bordas em que os outros módulos encaixam; no tamponamento, também o vão de dentro. */
 export function retangulosDeEncaixe(m: Modulo, materiais: Material[]): Retangulo[] {
   const r = retanguloNaTela(m, materiais);
@@ -276,7 +320,8 @@ export function retangulosDeEncaixe(m: Modulo, materiais: Material[]): Retangulo
   return [r, { x: r.x + esq, y: r.y, w: r.w - esq - (l.direita ? e : 0), h: r.h - (l.tampo ? e : 0) }];
 }
 
-const nomesLados: Record<keyof LadosTamponamento, string> = { esquerda: 'lateral esq.', direita: 'lateral dir.', tampo: 'tampo', fundo: 'fundo' };
+type Peca = 'esquerda' | 'direita' | 'tampo' | 'fundo';
+const nomesLados: Record<Peca, string> = { esquerda: 'lateral esq.', direita: 'lateral dir.', tampo: 'tampo', fundo: 'fundo' };
 
 function resumoInterior(m: Modulo) {
   if (m.frente === 'gavetas') return '';
@@ -308,7 +353,7 @@ export function descricao(m: Modulo, materiais: Material[]) {
   if (m.tipo === 'base') return `Base (rodapé) · ${material}`;
   if (m.tipo === 'envelope') {
     const l = ladosDe(m);
-    const pecas = (Object.keys(nomesLados) as (keyof LadosTamponamento)[]).filter((k) => l[k]).map((k) => nomesLados[k]);
+    const pecas = (Object.keys(nomesLados) as Peca[]).filter((k) => l[k]).map((k) => nomesLados[k]);
     return `Tamponamento (${pecas.join(', ') || 'sem peças'}) · ${material}`;
   }
   return `${material} · ${descricaoFrente(m)}${resumoInterior(m)}`;

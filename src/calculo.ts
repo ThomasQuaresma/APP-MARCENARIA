@@ -1,5 +1,5 @@
 import { empacotar, type ItemCorte, type ResultadoCorte } from './corte';
-import { ferragensDoModulo, pecasDoModulo, somarItens } from './modulos';
+import { compartilharLaterais, ferragensDoModulo, pecasDoModulo, somarItens } from './modulos';
 import type { Ajustes, ItemKit, Material, PecaBase, Projeto } from './types';
 import { fmtDim } from './unidades';
 
@@ -50,7 +50,7 @@ const sugestao = (area: number, porM2: number, fixo: number) => (area > 0 ? Math
 export const temSugestaoDeMaoDeObra = (a: Ajustes) => a.maoDeObraM2 + a.maoDeObraFixa + a.instalacaoM2 + a.instalacaoFixa > 0;
 
 export const todasPecas = (p: Projeto): PecaLista[] =>
-  p.modulos.flatMap((m) => pecasDoModulo(m, p.materiais, p.ajustes).map((x) => ({ ...x, origem: m.nome })));
+  compartilharLaterais(p.modulos, p.materiais).flatMap((m) => pecasDoModulo(m, p.materiais, p.ajustes).map((x) => ({ ...x, origem: m.nome })));
 
 export function calcular(p: Projeto): Orcamento {
   const pecas = todasPecas(p);

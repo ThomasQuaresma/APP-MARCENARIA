@@ -8,7 +8,7 @@ import { EditorModulo } from '../componentes/editores';
 import { anguloDoCanto, DesenharPlanta, giroDoAngulo, PlantaBaixa } from '../componentes/Planta';
 import { Ver3D } from '../componentes/Ver3D';
 import { novaParede, novoId, quatroParedes, removerDaLista, salvarNaLista } from '../estado';
-import { espessuraDe, ladosPadrao, moduloDoMolde, posicaoLivre, retangulosDasAberturas, retanguloNaTela, sobrepoe, zonasDeCanto } from '../modulos';
+import { espessuraDe, ladosPadrao, lateraisDosTamponamentos, moduloDoMolde, posicaoLivre, retangulosDasAberturas, retanguloNaTela, sobrepoe, zonasDeCanto } from '../modulos';
 import { fecharPlanta, paredesDosPontos, type Ponto } from '../planta';
 import { fmtMedida } from '../unidades';
 import type { Abertura, Ambiente, Modulo, Parede, Piso, Projeto } from '../types';
@@ -137,7 +137,14 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
   function tamponar(m: Modulo) {
     const material = m.materialFrenteId || m.materialId;
     const e = espessuraDe(material, materiais);
-    const x = Math.max(0, m.x - e);
+    // laterais de tamponamentos vizinhos na mesma altura: a do lado vira a mesma lateral, não uma segunda
+    const laterais = lateraisDosTamponamentos(daParede, materiais).filter((r) => r.y < m.y + m.altura && r.y + r.h > m.y);
+    const naEsquerda = laterais.find((r) => r.x + r.w >= m.x - 1 && r.x + r.w <= m.x + e + 1);
+    const x = naEsquerda ? naEsquerda.x : Math.max(0, m.x - e);
+    // a caixa que invadia a lateral vizinha anda para depois dela
+    const caixaX = naEsquerda ? Math.max(m.x, naEsquerda.x + naEsquerda.w) : x + e;
+    const naDireita = laterais.find((r) => r.x >= caixaX + m.largura - e - 1 && r.x <= caixaX + m.largura + 1);
+    const direita = naDireita ? naDireita.x + naDireita.w : caixaX + m.largura + e;
     const t: Modulo = {
       ...moduloDoMolde('envelope', 'Tamponamento', materiais),
       id: novoId(),
@@ -145,12 +152,12 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
       materialId: material,
       x,
       y: m.y,
-      largura: m.largura + 2 * e,
+      largura: direita - x,
       altura: m.altura + e,
       profundidade: m.profundidade + ajustes.avancoTamponamento,
       lados: ladosPadrao,
     };
-    atualizar({ modulos: [...modulos.map((o) => (o.id === m.id ? { ...o, x: x + e } : o)), t] });
+    atualizar({ modulos: [...modulos.map((o) => (o.id === m.id ? { ...o, x: caixaX } : o)), t] });
     return t.id;
   }
 
@@ -202,7 +209,9 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
     };
     // equipamento sozinho só desvia de outro equipamento: a TV pode ir no painel, a cuba na bancada
     const soEquipamento = escolhidos.every((m) => m.tipo === 'objeto');
-    const obstaculos = (soEquipamento ? daParede.filter((m) => m.tipo === 'objeto') : solidos).map((m) => retanguloNaTela(m, materiais));
+    const obstaculos = soEquipamento
+      ? daParede.filter((m) => m.tipo === 'objeto').map((m) => retanguloNaTela(m, materiais))
+      : [...solidos.map((m) => retanguloNaTela(m, materiais)), ...lateraisDosTamponamentos(daParede, materiais)];
     const inicio = Math.max(0, ...zonas.filter((z) => z.x === 0).map((z) => z.w));
     const x = posicaoLivre(bloco, [...obstaculos, ...zonas, ...aberturas], inicio);
     const novos = escolhidos.map((m) => ({ ...m, id: novoId(), paredeId: parede.id, x: x + m.x - minX }));

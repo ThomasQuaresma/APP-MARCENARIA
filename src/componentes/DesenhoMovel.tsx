@@ -6,6 +6,7 @@ import {
   encaixar,
   encaixarBorda,
   espessuraDe,
+  compartilharLaterais,
   ladosDe,
   retangulosDasAberturas,
   retangulosDeEncaixe,
@@ -148,9 +149,11 @@ export function DesenhoMovel(props: Props) {
   }, [editavel]);
 
   // o módulo arrastado vai por último, para ficar por cima dos outros
-  const posicionados = modulos
-    .map((m) => (arraste?.id === m.id ? comRetangulo(m, arraste.ret) : m))
-    .sort((a, b) => Number(a.id === arraste?.id) - Number(b.id === arraste?.id));
+  // a lateral repartida entre tamponamentos encostados é calculada com a posição de agora, inclusive arrastando
+  const posicionados = compartilharLaterais(
+    modulos.map((m) => (arraste?.id === m.id ? comRetangulo(m, arraste.ret) : m)),
+    materiais,
+  ).sort((a, b) => Number(a.id === arraste?.id) - Number(b.id === arraste?.id));
   const rets = posicionados.map((m) => retanguloNaTela(m, materiais));
   const aberturas = parede.aberturas.map((a) => (arraste?.id === a.id ? comRetanguloAbertura(a, arraste.ret) : a));
   const limites = arraste?.limites ?? limitesDe(rets, parede);
@@ -754,8 +757,8 @@ function Figura({ m, r, materiais, escala, aberto = false }: FiguraProps) {
     const l = ladosDe(m);
     const c = cor(m.materialId);
     fundo = l.fundo ? c : 'none';
-    if (l.esquerda) detalhes.push(<rect key="le" x={r.x} y={topo} width={e} height={r.h} fill={c} />);
-    if (l.direita) detalhes.push(<rect key="ld" x={r.x + r.w - e} y={topo} width={e} height={r.h} fill={c} />);
+    if (l.esquerda && !l.doVizinho?.esquerda) detalhes.push(<rect key="le" x={r.x} y={topo} width={e} height={r.h} fill={c} />);
+    if (l.direita && !l.doVizinho?.direita) detalhes.push(<rect key="ld" x={r.x + r.w - e} y={topo} width={e} height={r.h} fill={c} />);
     if (l.tampo) detalhes.push(<rect key="tampo" x={r.x} y={topo} width={r.w} height={e} fill={c} />);
   } else if (m.tipo === 'caixa' && m.frente === 'portas' && n > 0 && !aberto) {
     fundo = cor(m.materialFrenteId);

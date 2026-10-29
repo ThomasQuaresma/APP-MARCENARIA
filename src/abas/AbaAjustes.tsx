@@ -239,15 +239,7 @@ export function AbaAjustes({ projeto, atualizar }: Props) {
         <CampoNumero rotulo="Recuo da prateleira" valor={a.recuoPrateleira} sufixo="mm" aoMudar={(recuoPrateleira) => mudar({ recuoPrateleira })} />
       </section>
 
-      <section className="cartao">
-        <h2>Corte</h2>
-        <Linha>
-          <CampoNumero rotulo="Espessura da serra" valor={a.serra} sufixo="mm" aoMudar={(serra) => mudar({ serra })} />
-          <CampoNumero rotulo="Refilo da borda" valor={a.refilo} sufixo="mm" aoMudar={(refilo) => mudar({ refilo })} />
-        </Linha>
-        <CampoNumero rotulo="Sobra aproveitável a partir de" valor={a.sobraMinima} sufixo="mm" aoMudar={(sobraMinima) => mudar({ sobraMinima })} />
-      </section>
-
+      {/* serra e refilo continuam na conta das chapas, com os valores padrão; o plano de corte (AbaCorte) está fora por enquanto */}
       <section className="cartao">
         <h2>Medidas</h2>
         <Opcoes<Unidade>

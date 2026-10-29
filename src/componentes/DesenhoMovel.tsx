@@ -78,6 +78,8 @@ interface Props {
   aoExcluir?: (m: Modulo) => void;
   /** Veste a caixa com o tamponamento e devolve o id dele, que passa a ficar selecionado. */
   aoTamponar?: (m: Modulo) => string;
+  /** Põe a pedra em cima do balcão (só visual) e devolve o id dela. */
+  aoPorPedra?: (m: Modulo) => string;
   /** Portas e janelas mudadas no desenho (arrastadas, duplicadas, excluídas). */
   aoMudarAberturas?: (aberturas: Abertura[]) => void;
   aoEditarAbertura?: (a: Abertura) => void;
@@ -112,7 +114,7 @@ const comRetanguloAbertura = (a: Abertura, r: Retangulo): Abertura => ({ ...a, x
 const cursorDo = ({ sx, sy }: Canto) => (sx === 0 ? 'ns-resize' : sy === 0 ? 'ew-resize' : sx === sy ? 'nesw-resize' : 'nwse-resize');
 
 export function DesenhoMovel(props: Props) {
-  const { modulos, materiais, parede, zonas = [], unidade: u, aoMudar, aoTocar, aoDuplicar, aoExcluir, aoTamponar, aoMudarAberturas, aoEditarAbertura } =
+  const { modulos, materiais, parede, zonas = [], unidade: u, aoMudar, aoTocar, aoDuplicar, aoExcluir, aoTamponar, aoPorPedra, aoMudarAberturas, aoEditarAbertura } =
     props;
   const svg = useRef<SVGSVGElement>(null);
   const idHachura = `hachura-${useId().replace(/:/g, '')}`;
@@ -367,6 +369,12 @@ export function DesenhoMovel(props: Props) {
           {aoDuplicar && (
             <button type="button" className="btn" onClick={() => setSelecionado(aoDuplicar(original(sel.id) ?? sel))}>
               Duplicar
+            </button>
+          )}
+          {/* balcão: caixa que termina na altura de bancada */}
+          {aoPorPedra && sel.tipo === 'caixa' && sel.y + sel.altura <= 1100 && (
+            <button type="button" className="btn" onClick={() => setSelecionado(aoPorPedra(original(sel.id) ?? sel))}>
+              + Pedra
             </button>
           )}
           {aoTamponar && sel.tipo === 'caixa' && (

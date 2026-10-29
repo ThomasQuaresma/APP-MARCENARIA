@@ -1,4 +1,5 @@
 import { useState, type Dispatch, type SetStateAction } from 'react';
+import { objeto } from '../catalogo';
 import { Aberturas, EditorAbertura } from '../componentes/Aberturas';
 import { BarraModulos } from '../componentes/BarraModulos';
 import { CampoNumero, CampoTexto, Linha, Opcoes } from '../componentes/campos';
@@ -7,7 +8,7 @@ import { EditorModulo } from '../componentes/editores';
 import { anguloDoCanto, DesenharPlanta, giroDoAngulo, PlantaBaixa } from '../componentes/Planta';
 import { Ver3D } from '../componentes/Ver3D';
 import { novaParede, novoId, quatroParedes, removerDaLista, salvarNaLista } from '../estado';
-import { espessuraDe, ladosPadrao, moduloDoMolde, posicaoLivre, retangulosDasAberturas, retanguloNaTela, sobrepoe, zonasDeCanto } from '../modulos';
+import { espessuraDe, ladosPadrao, moduloDoMolde, posicaoLivre, profundidadeTotal, retangulosDasAberturas, retanguloNaTela, sobrepoe, zonasDeCanto } from '../modulos';
 import { fecharPlanta, paredesDosPontos, type Ponto } from '../planta';
 import { fmtMedida } from '../unidades';
 import type { Abertura, Ambiente, Modulo, Parede, Piso, Projeto } from '../types';
@@ -138,6 +139,40 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
     };
     atualizar({ modulos: [...modulos.map((o) => (o.id === m.id ? { ...o, x: x + e } : o)), t] });
     return t.id;
+  }
+
+  /**
+   * Pedra em cima do balcão e dos balcões encostados nele, na mesma altura: só para mostrar ao cliente,
+   * não entra no custo. Passa 2 cm na frente das portas; a pedra que já estava ali é trocada.
+   */
+  function porPedra(m: Modulo) {
+    const topo = m.y + m.altura;
+    const doBalcao = daParede.filter((o) => o.tipo === 'caixa' && Math.abs(o.y + o.altura - topo) < 1);
+    const juntos = [m];
+    for (let achou = true; achou; ) {
+      achou = false;
+      for (const o of doBalcao) {
+        if (juntos.includes(o)) continue;
+        if (juntos.some((j) => o.x <= j.x + j.largura + 1 && o.x + o.largura >= j.x - 1)) {
+          juntos.push(o);
+          achou = true;
+        }
+      }
+    }
+    const x = Math.min(...juntos.map((o) => o.x));
+    const largura = Math.max(...juntos.map((o) => o.x + o.largura)) - x;
+    const pedra = objeto(materiais, 'bancada', {
+      id: novoId(),
+      nome: 'Pedra',
+      paredeId: parede.id,
+      x,
+      y: topo,
+      largura,
+      profundidade: Math.max(...juntos.map((o) => profundidadeTotal(o, materiais))) + 20,
+    });
+    const antigas = daParede.filter((o) => o.objeto === 'bancada' && Math.abs(o.y - topo) < 1 && o.x < x + largura && o.x + o.largura > x);
+    atualizar({ modulos: [...modulos.filter((o) => !antigas.includes(o)), pedra] });
+    return pedra.id;
   }
 
   function excluir(m: Modulo) {
@@ -305,6 +340,7 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
           aoDuplicar={duplicar}
           aoExcluir={excluir}
           aoTamponar={tamponar}
+          aoPorPedra={porPedra}
           aoMudarAberturas={mudarAberturas}
           aoEditarAbertura={setEdicaoAbertura}
           selecionado={selecionado}

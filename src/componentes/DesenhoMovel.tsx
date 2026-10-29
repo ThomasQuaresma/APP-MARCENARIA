@@ -11,6 +11,7 @@ import {
   retanguloNaTela,
   vaosNaCaixa,
 } from '../modulos';
+import { novoId } from '../estado';
 import type { Abertura, Material, Modulo, Parede, TipoObjeto, Unidade } from '../types';
 import { fmtMedida } from '../unidades';
 
@@ -41,14 +42,16 @@ const MINIMO = 50;
 
 interface Arraste {
   id: string;
+  /** Módulo ou porta/janela da parede: os dois se arrastam e mudam de tamanho do mesmo jeito. */
+  alvo: 'modulo' | 'abertura';
   ponteiro: number;
   inicioTela: { x: number; y: number };
   inicioSvg: { x: number; y: number };
   original: Retangulo;
   ret: Retangulo;
-  /** Sem canto, move o módulo inteiro; com canto, muda o tamanho. */
+  /** Sem canto, move inteiro; com canto, muda o tamanho. */
   canto: Canto | null;
-  /** Tocar de novo num módulo já selecionado abre a edição. */
+  /** Tocar de novo no que já está selecionado abre a edição. */
   jaSelecionado: boolean;
   guias: { x: number | null; y: number | null };
   moveu: boolean;
@@ -71,6 +74,10 @@ interface Props {
   aoTocar?: (m: Modulo) => void;
   /** Cria a cópia e devolve o id dela, que passa a ficar selecionada. */
   aoDuplicar?: (m: Modulo) => string;
+  aoExcluir?: (m: Modulo) => void;
+  /** Portas e janelas mudadas no desenho (arrastadas, duplicadas, excluídas). */
+  aoMudarAberturas?: (aberturas: Abertura[]) => void;
+  aoEditarAbertura?: (a: Abertura) => void;
   /** Seleção controlada por fora (para o módulo recém-colocado já vir selecionado); sem ela, o desenho cuida sozinho. */
   selecionado?: string | null;
   aoSelecionar?: (id: string | null) => void;
@@ -90,10 +97,20 @@ function cantosDe(m: Modulo): Canto[] {
   return [];
 }
 
+/** Porta e passagem ficam no chão: só mudam a largura e a altura por cima. */
+function cantosDaAbertura(a: Abertura): Canto[] {
+  if (a.tipo !== 'janela') return [{ sx: -1, sy: 1 }, { sx: 1, sy: 1 }, { sx: 0, sy: 1 }];
+  return [{ sx: -1, sy: -1 }, { sx: 1, sy: -1 }, { sx: -1, sy: 1 }, { sx: 1, sy: 1 }];
+}
+
+const retanguloDaAbertura = (a: Abertura): Retangulo => ({ x: a.x, y: a.y, w: a.largura, h: a.altura });
+const comRetanguloAbertura = (a: Abertura, r: Retangulo): Abertura => ({ ...a, x: r.x, y: r.y, largura: r.w, altura: r.h });
+
 const cursorDo = ({ sx, sy }: Canto) => (sx === 0 ? 'ns-resize' : sy === 0 ? 'ew-resize' : sx === sy ? 'nesw-resize' : 'nwse-resize');
 
 export function DesenhoMovel(props: Props) {
-  const { modulos, materiais, parede, zonas = [], unidade: u, aoMudar, aoTocar, aoDuplicar } = props;
+  const { modulos, materiais, parede, zonas = [], unidade: u, aoMudar, aoTocar, aoDuplicar, aoExcluir, aoMudarAberturas, aoEditarAbertura } =
+    props;
   const svg = useRef<SVGSVGElement>(null);
   const idHachura = `hachura-${useId().replace(/:/g, '')}`;
   const [arraste, setArraste] = useState<Arraste | null>(null);
@@ -120,6 +137,7 @@ export function DesenhoMovel(props: Props) {
     .map((m) => (arraste?.id === m.id ? comRetangulo(m, arraste.ret) : m))
     .sort((a, b) => Number(a.id === arraste?.id) - Number(b.id === arraste?.id));
   const rets = posicionados.map((m) => retanguloNaTela(m, materiais));
+  const aberturas = parede.aberturas.map((a) => (arraste?.id === a.id ? comRetanguloAbertura(a, arraste.ret) : a));
   const limites = arraste?.limites ?? limitesDe(rets, parede);
   const escala = Math.max(limites.w, limites.h);
   const retParede: Retangulo = { x: 0, y: 0, w: parede.largura, h: parede.altura };
@@ -129,8 +147,11 @@ export function DesenhoMovel(props: Props) {
 
   const iSel = editavel ? posicionados.findIndex((m) => m.id === selecionado) : -1;
   const sel = iSel >= 0 ? posicionados[iSel] : null;
-  const retSel = iSel >= 0 ? rets[iSel] : null;
+  const abSel = editavel && aoMudarAberturas ? (aberturas.find((a) => a.id === selecionado) ?? null) : null;
+  const retSel = iSel >= 0 ? rets[iSel] : abSel ? retanguloDaAbertura(abSel) : null;
+  const cantosSel = sel ? cantosDe(sel) : abSel ? cantosDaAbertura(abSel) : [];
   const original = (id: string) => modulos.find((x) => x.id === id);
+  const aberturaOriginal = (id: string) => parede.aberturas.find((x) => x.id === id);
 
   const pontoSvg = (e: EventoPonteiro) => {
     const ctm = svg.current?.getScreenCTM();
@@ -139,12 +160,14 @@ export function DesenhoMovel(props: Props) {
     return { x: p.x, y: p.y };
   };
 
-  function iniciar(e: EventoPonteiro<SVGGElement>, m: Modulo, canto: Canto | null) {
+  function iniciar(e: EventoPonteiro<SVGGElement>, m: Modulo | Abertura, canto: Canto | null) {
     if (!aoMudar || arraste) return;
     svg.current?.setPointerCapture(e.pointerId);
-    const r = retanguloNaTela(m, materiais);
+    const ehAbertura = !('nome' in m);
+    const r = ehAbertura ? retanguloDaAbertura(m) : retanguloNaTela(m, materiais);
     setArraste({
       id: m.id,
+      alvo: ehAbertura ? 'abertura' : 'modulo',
       ponteiro: e.pointerId,
       inicioTela: { x: e.clientX, y: e.clientY },
       inicioSvg: pontoSvg(e),
@@ -163,19 +186,32 @@ export function DesenhoMovel(props: Props) {
     if (!arraste || e.pointerId !== arraste.ponteiro) return;
     // pequenos tremidos do dedo contam como toque, não como arraste
     if (!arraste.moveu && Math.hypot(e.clientX - arraste.inicioTela.x, e.clientY - arraste.inicioTela.y) < 8) return;
-    const m = original(arraste.id);
-    if (!m) return;
     const p = pontoSvg(e);
     const dx = p.x - arraste.inicioSvg.x;
     const dy = -(p.y - arraste.inicioSvg.y);
     const o = arraste.original;
     const tolerancia = escala / 30;
     // encaixa também nos cantos e no teto da parede, e nos móveis que vêm da parede vizinha
-    const outros = [retParede, ...zonas, ...retangulosDasAberturas(parede), ...modulos.filter((x) => x.id !== m.id).flatMap((x) => retangulosDeEncaixe(x, materiais))];
+    const outros = [
+      retParede,
+      ...zonas,
+      ...retangulosDasAberturas(parede).filter((_, i) => parede.aberturas[i].id !== arraste.id),
+      ...modulos.filter((x) => x.id !== arraste.id).flatMap((x) => retangulosDeEncaixe(x, materiais)),
+    ];
+    const abertura = arraste.alvo === 'abertura' ? aberturaOriginal(arraste.id) : undefined;
 
     if (!arraste.canto) {
       const encaixe = encaixar({ ...o, x: o.x + dx, y: o.y + dy }, outros, tolerancia);
-      setArraste({ ...arraste, moveu: true, ret: { ...o, x: encaixe.x, y: encaixe.y }, guias: encaixe.guias });
+      let ret = { ...o, x: encaixe.x, y: encaixe.y };
+      // porta e janela não saem da parede; porta e passagem ficam no chão
+      if (abertura) {
+        ret = {
+          ...ret,
+          x: Math.min(Math.max(0, ret.x), Math.max(0, parede.largura - o.w)),
+          y: abertura.tipo === 'janela' ? Math.min(Math.max(0, ret.y), Math.max(0, parede.altura - o.h)) : 0,
+        };
+      }
+      setArraste({ ...arraste, moveu: true, ret, guias: encaixe.guias });
       return;
     }
 
@@ -201,12 +237,31 @@ export function DesenhoMovel(props: Props) {
         ret.h = o.y + o.h - ret.y;
       }
     }
+    if (abertura) {
+      // não passa das bordas da parede
+      if (ret.x < 0) {
+        ret.w += ret.x;
+        ret.x = 0;
+      }
+      ret.w = Math.min(ret.w, parede.largura - ret.x);
+      ret.h = Math.min(ret.h, parede.altura - ret.y);
+    }
     setArraste({ ...arraste, moveu: true, ret, guias });
   }
 
   function soltar(e: EventoPonteiro<SVGSVGElement>) {
     if (!arraste || e.pointerId !== arraste.ponteiro) return;
     setArraste(null);
+    if (arraste.alvo === 'abertura') {
+      const a = aberturaOriginal(arraste.id);
+      if (!a) return;
+      if (arraste.moveu) {
+        const r = arraste.ret;
+        const nova = { ...a, x: Math.round(r.x), y: Math.round(r.y), largura: Math.round(r.w), altura: Math.round(r.h) };
+        aoMudarAberturas?.(parede.aberturas.map((x) => (x.id === a.id ? nova : x)));
+      } else if (!arraste.canto && arraste.jaSelecionado) aoEditarAbertura?.(a);
+      return;
+    }
     const m = original(arraste.id);
     if (!m) return;
     if (arraste.moveu) {
@@ -227,7 +282,7 @@ export function DesenhoMovel(props: Props) {
         aria-label="Desenho do móvel visto de frente"
         onPointerDown={(e) => {
           // tocar fora dos módulos tira a seleção
-          if (editavel && e.target instanceof Element && !e.target.closest('.mod, .alca')) setSelecionado(null);
+          if (editavel && e.target instanceof Element && !e.target.closest('.mod, .alca, .abertura.arrastavel')) setSelecionado(null);
         }}
         onPointerMove={mover}
         onPointerUp={soltar}
@@ -242,8 +297,14 @@ export function DesenhoMovel(props: Props) {
         {zonas.map((z, i) => (
           <rect key={i} x={z.x} y={-(z.y + z.h)} width={z.w} height={z.h} fill={`url(#${idHachura})`} className="canto" />
         ))}
-        {parede.aberturas.map((a) => (
-          <FiguraAbertura key={a.id} a={a} escala={escala} />
+        {aberturas.map((a) => (
+          <FiguraAbertura
+            key={a.id}
+            a={a}
+            escala={escala}
+            selecionada={a.id === abSel?.id}
+            aoTocar={editavel && aoMudarAberturas ? (e) => iniciar(e, aberturaOriginal(a.id) ?? a, null) : undefined}
+          />
         ))}
         <line x1={limites.x} x2={limites.x + limites.w} y1={0} y2={0} className="chao" />
         {posicionados.map((m, i) => (
@@ -262,17 +323,22 @@ export function DesenhoMovel(props: Props) {
         {arraste?.moveu && arraste.guias.y !== null && (
           <line x1={limites.x} x2={limites.x + limites.w} y1={-arraste.guias.y} y2={-arraste.guias.y} className="guia" />
         )}
-        {sel && retSel && (
-          <Cotas r={retSel} parede={parede} unidade={u} fonte={fonteCota} afastamento={afastamento} />
-        )}
-        {sel &&
-          retSel &&
-          cantosDe(sel).map((c) => {
+        {retSel && <Cotas r={retSel} parede={parede} unidade={u} fonte={fonteCota} afastamento={afastamento} />}
+        {retSel &&
+          cantosSel.map((c) => {
             const topo = -(retSel.y + retSel.h);
             const cx = c.sx < 0 ? retSel.x : c.sx > 0 ? retSel.x + retSel.w : retSel.x + retSel.w / 2;
             const cy = c.sy > 0 ? topo : c.sy < 0 ? topo + retSel.h : topo + retSel.h / 2;
             return (
-              <g key={`${c.sx}${c.sy}`} className="alca" style={{ cursor: cursorDo(c) }} onPointerDown={(e) => iniciar(e, sel, c)}>
+              <g
+                key={`${c.sx}${c.sy}`}
+                className="alca"
+                style={{ cursor: cursorDo(c) }}
+                onPointerDown={(e) => {
+                  const alvo = sel ?? (abSel && aberturaOriginal(abSel.id));
+                  if (alvo) iniciar(e, alvo, c);
+                }}
+              >
                 {/* círculo grande e invisível, do tamanho de um dedo */}
                 <circle cx={cx} cy={cy} r={escala / 26} className="alca-toque" />
                 <circle cx={cx} cy={cy} r={escala / 110} className="alca-ponto" />
@@ -300,6 +366,44 @@ export function DesenhoMovel(props: Props) {
               Duplicar
             </button>
           )}
+          {aoExcluir && (
+            <button type="button" className="btn btn-perigo" onClick={() => aoExcluir(original(sel.id) ?? sel)}>
+              Excluir
+            </button>
+          )}
+        </div>
+      )}
+      {abSel && aoMudarAberturas && (
+        <div className="barra-selecao">
+          <strong>{nomesAbertura[abSel.tipo]}</strong>
+          <button type="button" className="btn" onClick={() => aoEditarAbertura?.(aberturaOriginal(abSel.id) ?? abSel)}>
+            Editar
+          </button>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              // a cópia entra logo à direita; se não couber, à esquerda
+              const direita = abSel.x + abSel.largura;
+              const x = direita + abSel.largura <= parede.largura ? direita : Math.max(0, abSel.x - abSel.largura);
+              const copia = { ...abSel, id: novoId(), x };
+              aoMudarAberturas([...parede.aberturas, copia]);
+              setSelecionado(copia.id);
+            }}
+          >
+            Duplicar
+          </button>
+          <button
+            type="button"
+            className="btn btn-perigo"
+            onClick={() => {
+              if (!confirm(`Excluir esta ${nomesAbertura[abSel.tipo].toLowerCase()}?`)) return;
+              aoMudarAberturas(parede.aberturas.filter((x) => x.id !== abSel.id));
+              setSelecionado(null);
+            }}
+          >
+            Excluir
+          </button>
         </div>
       )}
       <figcaption>
@@ -310,14 +414,22 @@ export function DesenhoMovel(props: Props) {
   );
 }
 
-const nomesAbertura = { porta: 'Porta', janela: 'Janela', passagem: 'Passagem' };
+export const nomesAbertura = { porta: 'Porta', janela: 'Janela', passagem: 'Passagem' };
+
+interface FiguraAberturaProps {
+  a: Abertura;
+  escala: number;
+  selecionada?: boolean;
+  /** Sem esta função, a porta ou janela é só para ver. */
+  aoTocar?: (e: EventoPonteiro<SVGGElement>) => void;
+}
 
 /** Porta, janela ou passagem na parede, por trás dos móveis. */
-function FiguraAbertura({ a, escala }: { a: Abertura; escala: number }) {
+function FiguraAbertura({ a, escala, selecionada, aoTocar }: FiguraAberturaProps) {
   const topo = -(a.y + a.altura);
   const batente = Math.min(60, a.largura / 8);
   return (
-    <g className={`abertura ${a.tipo}`}>
+    <g className={`abertura ${a.tipo}${aoTocar ? ' arrastavel' : ''}${selecionada ? ' selecionada' : ''}`} onPointerDown={aoTocar}>
       <rect x={a.x} y={topo} width={a.largura} height={a.altura} className="vao-abertura" />
       {a.tipo === 'porta' && (
         <>

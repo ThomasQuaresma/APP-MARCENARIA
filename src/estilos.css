@@ -741,6 +741,9 @@ main > section {
   max-height: 42vh;
   display: block;
   overflow: visible;
+  /* arrastar com o mouse não seleciona os textos do desenho */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .movel figcaption {
@@ -1453,4 +1456,11 @@ main > section {
 
 .acoes-orcamento .btn {
   flex: 1;
+}
+
+/* porta e janela selecionadas no desenho, como os módulos */
+
+.movel .abertura.selecionada .vao-abertura {
+  stroke: var(--marca);
+  stroke-width: 2.5;
 }

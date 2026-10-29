@@ -1,5 +1,5 @@
 import { useState, type Dispatch, type SetStateAction } from 'react';
-import { Aberturas } from '../componentes/Aberturas';
+import { Aberturas, EditorAbertura } from '../componentes/Aberturas';
 import { BarraModulos } from '../componentes/BarraModulos';
 import { CampoNumero, CampoTexto, Linha, Opcoes } from '../componentes/campos';
 import { DesenhoMovel, type Mudanca } from '../componentes/DesenhoMovel';
@@ -9,7 +9,7 @@ import { novaParede, novoId, removerDaLista, salvarNaLista } from '../estado';
 import { posicaoLivre, retangulosDasAberturas, retanguloNaTela, sobrepoe, zonasDeCanto } from '../modulos';
 import { fecharPlanta, paredesDosPontos, type Ponto } from '../planta';
 import { fmtMedida } from '../unidades';
-import type { Ambiente, Modulo, Parede, Piso, Projeto } from '../types';
+import type { Abertura, Ambiente, Modulo, Parede, Piso, Projeto } from '../types';
 
 interface Props {
   projeto: Projeto;
@@ -38,6 +38,7 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
   const u = ajustes.unidade;
   const [paredeId, setParedeId] = useState(paredes[0].id);
   const [edicao, setEdicao] = useState<Modulo | null>(null);
+  const [edicaoAbertura, setEdicaoAbertura] = useState<Abertura | null>(null);
   const [selecionado, setSelecionado] = useState<string | null>(null);
   const [desenhando, setDesenhando] = useState(false);
   const simples = projeto.planta === 'simples';
@@ -132,6 +133,14 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
     atualizar({ modulos: [...modulos, copia] });
     return copia.id;
   }
+
+  function excluir(m: Modulo) {
+    if (!confirm(`Excluir ${m.nome}?`)) return;
+    atualizar({ modulos: removerDaLista(modulos, m.id) });
+    setSelecionado(null);
+  }
+
+  const mudarAberturas = (aberturas: Abertura[]) => mudarParede({ aberturas });
 
   // meio milímetro de tolerância para arredondamentos
   const foraDaParede = daParede.filter((m) => {
@@ -292,6 +301,9 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
           aoMudar={mudar}
           aoTocar={setEdicao}
           aoDuplicar={duplicar}
+          aoExcluir={excluir}
+          aoMudarAberturas={mudarAberturas}
+          aoEditarAbertura={setEdicaoAbertura}
           selecionado={selecionado}
           aoSelecionar={setSelecionado}
         />
@@ -313,7 +325,13 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
             Um módulo em cima do outro: {sobrepostos.join('; ')}. Para prateleira dentro do armário, use "Por dentro" na edição do módulo.
           </p>
         )}
-        <Aberturas parede={parede} unidade={u} aoMudar={(aberturas) => mudarParede({ aberturas })} />
+        <Aberturas
+          parede={parede}
+          aoAdicionar={(a) => {
+            mudarAberturas([...parede.aberturas, a]);
+            setSelecionado(a.id);
+          }}
+        />
         <p className="dica">
           {daParede.length === 0
             ? 'Toque num bloco para colocar o módulo na parede. As peças e o custo são calculados sozinhos.'
@@ -337,6 +355,23 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
             setEdicao(null);
           }}
           aoSalvarModelo={(m) => setBiblioteca((l) => [...l, { ...m, id: novoId(), x: 0, y: 0 }])}
+        />
+      )}
+
+      {edicaoAbertura && (
+        <EditorAbertura
+          inicial={edicaoAbertura}
+          unidade={u}
+          aoFechar={() => setEdicaoAbertura(null)}
+          aoSalvar={(a) => {
+            mudarAberturas(salvarNaLista(parede.aberturas, a));
+            setEdicaoAbertura(null);
+          }}
+          aoExcluir={(id) => {
+            mudarAberturas(removerDaLista(parede.aberturas, id));
+            setEdicaoAbertura(null);
+            setSelecionado(null);
+          }}
         />
       )}
     </>

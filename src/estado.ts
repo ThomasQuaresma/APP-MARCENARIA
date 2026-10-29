@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Ajustes, Ambiente, Extras, ItemKit, Material, Modulo, Parede, Projeto, Vao } from './types';
+import type { Abertura, Ajustes, Ambiente, Extras, ItemKit, Material, Modulo, Parede, Projeto, TipoAbertura, Vao } from './types';
 
 const CHAVE_PROJETO = 'marcenaria:projeto:v1';
 const CHAVE_BIBLIOTECA = 'marcenaria:biblioteca:v1';
@@ -48,7 +48,20 @@ export const ajustesPadrao: Ajustes = {
 
 export const extrasZerados: Extras = { maoDeObra: 0, instalacao: 0, frete: 0, outros: 0 };
 
-export const novaParede = (numero: number): Parede => ({ id: `parede-${numero}`, nome: `Parede ${numero}`, largura: 3000, altura: 2600 });
+export const novaParede = (numero: number): Parede => ({
+  id: `parede-${numero}`,
+  nome: `Parede ${numero}`,
+  largura: 3000,
+  altura: 2600,
+  giro: 90,
+  aberturas: [],
+});
+
+/** Medidas comuns de porta, janela e passagem; entram no meio da parede. */
+export function novaAbertura(tipo: TipoAbertura, parede: Parede): Abertura {
+  const [largura, altura, y] = tipo === 'janela' ? [1200, 1000, 1100] : tipo === 'porta' ? [800, 2100, 0] : [900, 2100, 0];
+  return { id: novoId(), tipo, x: Math.max(0, Math.round((parede.largura - largura) / 20) * 10), y, largura, altura };
+}
 
 export const ambientePadrao: Ambiente = { corParede: '#f2ede6', piso: 'porcelanato' };
 
@@ -63,6 +76,8 @@ export const materiaisPadrao: Material[] = [
 export const projetoNovo = (): Projeto => ({
   cliente: '',
   paredes: [novaParede(1)],
+  planta: 'simples',
+  fechado: false,
   ambiente: ambientePadrao,
   materiais: materiaisPadrao,
   modulos: [],
@@ -94,7 +109,11 @@ function migrar(p: Partial<Projeto> & { parede?: { largura: number; altura: numb
   let proximoX = 0;
   // versões anteriores tinham uma parede só, sem id
   const { parede: antiga, ...resto } = p;
-  const paredes = p.paredes?.length ? p.paredes : [{ ...novaParede(1), ...antiga }];
+  const paredes = (p.paredes?.length ? p.paredes : [{ ...novaParede(1), ...antiga }]).map((x) => ({
+    ...x,
+    giro: x.giro ?? 90,
+    aberturas: x.aberturas ?? [],
+  }));
   return {
     ...projetoNovo(),
     ...resto,

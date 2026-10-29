@@ -762,6 +762,38 @@ main > section {
   stroke-dasharray: 8 6;
 }
 
+.movel .abertura .vao-abertura {
+  fill: #ffffff;
+  stroke: #9b8a78;
+}
+
+.movel .abertura.passagem .vao-abertura {
+  stroke-dasharray: 6 4;
+}
+
+.movel .abertura .folha {
+  fill: #e2d3bf;
+  stroke: #a8927a;
+}
+
+.movel .abertura .macaneta {
+  fill: #8d7a66;
+}
+
+.movel .abertura .vidro {
+  fill: #dcebf3;
+  stroke: #9db4c2;
+}
+
+.movel .abertura .caixilho {
+  stroke: #9db4c2;
+}
+
+.movel .abertura text {
+  fill: #8d7a66;
+  font-family: system-ui, sans-serif;
+}
+
 .movel .canto {
   stroke: #9b8a78;
   stroke-dasharray: 4 3;
@@ -1142,4 +1174,183 @@ main > section {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+}
+
+/* planta vista de cima */
+
+.planta {
+  margin: 0 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.planta svg {
+  width: 100%;
+  height: auto;
+  max-height: 40vh;
+  display: block;
+  background: #fbf8f4;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+}
+
+.planta figcaption {
+  font-size: 0.8rem;
+  color: var(--suave);
+  text-align: center;
+}
+
+.planta line,
+.planta polyline,
+.planta polygon,
+.planta path,
+.planta circle {
+  vector-effect: non-scaling-stroke;
+}
+
+.planta .piso-planta {
+  fill: #f1ebe3;
+}
+
+.planta .pegada {
+  fill: rgba(122, 75, 33, 0.18);
+  stroke: rgba(122, 75, 33, 0.55);
+  stroke-width: 1;
+}
+
+.planta .pegada.objeto {
+  fill: rgba(141, 147, 154, 0.15);
+  stroke: rgba(141, 147, 154, 0.5);
+}
+
+.parede-planta {
+  cursor: pointer;
+}
+
+.parede-planta .toque {
+  stroke: transparent;
+  stroke-width: 28;
+}
+
+.parede-planta .traco {
+  stroke: #8d7a66;
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.parede-planta.ativa .traco {
+  stroke: var(--marca);
+  stroke-width: 8;
+}
+
+.parede-planta text {
+  fill: #6b5a49;
+  font-family: system-ui, sans-serif;
+  font-weight: 700;
+}
+
+.parede-planta.ativa text {
+  fill: var(--marca);
+}
+
+.planta .corte-abertura {
+  stroke: #fbf8f4;
+  stroke-width: 8;
+}
+
+.planta .folha-planta {
+  stroke: #8d7a66;
+  stroke-width: 2;
+}
+
+.planta .arco-planta {
+  fill: none;
+  stroke: #b9a896;
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+
+.planta .janela-planta {
+  stroke: #7fa9c2;
+  stroke-width: 4;
+}
+
+.planta.desenhando svg {
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.planta .grade line {
+  stroke: #ece4da;
+  stroke-width: 1;
+}
+
+.planta .grade.forte line {
+  stroke: #ddd1c3;
+}
+
+.planta .traco-desenho {
+  fill: none;
+  stroke: var(--marca);
+  stroke-width: 6;
+  stroke-linejoin: round;
+}
+
+.planta .traco-previa {
+  stroke: var(--marca);
+  stroke-width: 3;
+  stroke-dasharray: 8 6;
+}
+
+.planta .ponto {
+  fill: var(--marca);
+}
+
+.planta .ponto.primeiro {
+  fill: rgba(122, 75, 33, 0.25);
+  stroke: var(--marca);
+  stroke-width: 2;
+}
+
+.planta .ponto.cursor {
+  fill: #c0392b;
+}
+
+.planta.desenhando text {
+  fill: var(--marca);
+  font-family: system-ui, sans-serif;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 4px;
+}
+
+.acoes-planta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lista-paredes,
+.aberturas {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.vao-topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.vao-topo .remover {
+  border: 0;
+  background: none;
+  color: var(--suave);
+  font-size: 1.3rem;
+  padding: 0 6px;
+  cursor: pointer;
 }

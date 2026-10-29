@@ -1,6 +1,7 @@
 import type { Retangulo } from './corte';
 import { novoId, vaoSimples } from './estado';
-import type { Ajustes, ItemKit, Material, Modulo, PecaBase, Projeto, TipoObjeto, Unidade, Vao } from './types';
+import { radianos, vizinhas } from './planta';
+import type { Ajustes, ItemKit, Material, Modulo, Parede, PecaBase, Projeto, TipoObjeto, Unidade, Vao } from './types';
 import { fmtMedida } from './unidades';
 
 const arred = (n: number) => Math.round(n * 10) / 10;
@@ -54,17 +55,33 @@ export function zonasDeCanto(p: Projeto, paredeId: string): Retangulo[] {
   const i = p.paredes.findIndex((x) => x.id === paredeId);
   if (i < 0) return [];
   const parede = p.paredes[i];
-  const anterior = p.paredes[i - 1];
-  const proxima = p.paredes[i + 1];
+  const v = vizinhas(p.paredes, p.fechado, i);
+  const anterior = p.paredes[v.anterior];
+  const proxima = p.paredes[v.proxima];
   const zonas: Retangulo[] = [];
   for (const m of p.modulos) {
     const r = retanguloNaTela(m, p.materiais);
     const fundo = profundidadeTotal(m, p.materiais);
-    if (anterior && m.paredeId === anterior.id && r.x + r.w >= anterior.largura - 1) zonas.push({ x: 0, y: r.y, w: fundo, h: r.h });
-    if (proxima && m.paredeId === proxima.id && r.x <= 1) zonas.push({ x: parede.largura - fundo, y: r.y, w: fundo, h: r.h });
+    const entrada = ocupaNoCanto(fundo, v.giroEntrada);
+    const saida = ocupaNoCanto(fundo, v.giroSaida);
+    if (anterior && entrada && m.paredeId === anterior.id && r.x + r.w >= anterior.largura - 1) zonas.push({ x: 0, y: r.y, w: entrada, h: r.h });
+    if (proxima && saida && m.paredeId === proxima.id && r.x <= 1) zonas.push({ x: parede.largura - saida, y: r.y, w: saida, h: r.h });
   }
   return zonas;
 }
+
+/**
+ * Quanto o móvel da parede vizinha toma desta parede, no canto. No canto de 90° é a profundidade dele;
+ * com a parede inclinada, mais; na quina para fora ou quase reto, nada.
+ */
+function ocupaNoCanto(fundo: number, giro: number | null) {
+  if (giro === null || giro < 20) return 0;
+  return Math.round(fundo / Math.sin(radianos(Math.max(30, 180 - giro))));
+}
+
+/** Portas, janelas e passagens da parede, como retângulos para desviar e avisar. */
+export const retangulosDasAberturas = (parede: Parede): Retangulo[] =>
+  parede.aberturas.map((a) => ({ x: a.x, y: a.y, w: a.largura, h: a.altura }));
 
 export const nomesObjeto: Record<TipoObjeto, string> = {
   cuba: 'Cuba',

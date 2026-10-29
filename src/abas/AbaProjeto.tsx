@@ -1,10 +1,14 @@
 import { useState, type Dispatch, type SetStateAction } from 'react';
+import { Aberturas } from '../componentes/Aberturas';
 import { BarraModulos } from '../componentes/BarraModulos';
 import { CampoNumero, CampoTexto, Linha, Opcoes } from '../componentes/campos';
 import { DesenhoMovel, type Mudanca } from '../componentes/DesenhoMovel';
 import { EditorModulo } from '../componentes/editores';
+import { anguloDoCanto, DesenharPlanta, giroDoAngulo, PlantaBaixa } from '../componentes/Planta';
 import { novaParede, novoId, removerDaLista, salvarNaLista } from '../estado';
-import { posicaoLivre, retanguloNaTela, sobrepoe, zonasDeCanto } from '../modulos';
+import { posicaoLivre, retangulosDasAberturas, retanguloNaTela, sobrepoe, zonasDeCanto } from '../modulos';
+import { fecharPlanta, paredesDosPontos, type Ponto } from '../planta';
+import { fmtMedida } from '../unidades';
 import type { Ambiente, Modulo, Parede, Piso, Projeto } from '../types';
 
 interface Props {
@@ -18,7 +22,16 @@ const formatos = [
   { valor: 1, texto: 'Reto' },
   { valor: 2, texto: 'Em L' },
   { valor: 3, texto: 'Em U' },
+  { valor: 4, texto: 'Fechado' },
 ];
+
+const modos = [
+  { valor: 'simples' as const, texto: 'Simples' },
+  { valor: 'avancada' as const, texto: 'Avançada (desenhar)' },
+];
+
+/** Parede nova com id único, para não confundir com uma que já foi apagada. */
+const paredeNova = (numero: number) => ({ ...novaParede(numero), id: novoId() });
 
 export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Props) {
   const { modulos, materiais, ajustes, paredes, ambiente } = projeto;
@@ -26,6 +39,8 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
   const [paredeId, setParedeId] = useState(paredes[0].id);
   const [edicao, setEdicao] = useState<Modulo | null>(null);
   const [selecionado, setSelecionado] = useState<string | null>(null);
+  const [desenhando, setDesenhando] = useState(false);
+  const simples = projeto.planta === 'simples';
 
   if (materiais.length === 0) {
     return <p className="vazio">Cadastre pelo menos uma chapa na aba Chapas para começar.</p>;
@@ -34,23 +49,78 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
   const parede = paredes.find((p) => p.id === paredeId) ?? paredes[0];
   const daParede = modulos.filter((m) => m.paredeId === parede.id);
   const zonas = zonasDeCanto(projeto, parede.id);
-  const mudarParede = (parcial: Partial<Parede>) =>
-    atualizar({ paredes: paredes.map((p) => (p.id === parede.id ? { ...p, ...parcial } : p)) });
   const mudarAmbiente = (parcial: Partial<Ambiente>) => atualizar({ ambiente: { ...ambiente, ...parcial } });
 
-  function mudarFormato(qtd: number) {
-    if (qtd === paredes.length) return;
-    if (qtd > paredes.length) {
-      const novas = Array.from({ length: qtd - paredes.length }, (_, i) => novaParede(paredes.length + i + 1));
-      atualizar({ paredes: [...paredes, ...novas] });
-      return;
-    }
-    const removidas = paredes.slice(qtd).map((p) => p.id);
-    const perdidos = modulos.filter((m) => removidas.includes(m.paredeId)).length;
+  /**
+   * Troca as paredes do ambiente. Os módulos das paredes que saem são apagados (pergunta antes);
+   * no ambiente fechado, a última parede é recalculada para encontrar a primeira.
+   */
+  function trocarParedes(novas: Parede[], fechado: boolean, parcial: Partial<Projeto> = {}) {
+    const ficam = novas.map((p) => p.id);
+    const perdidos = modulos.filter((m) => !ficam.includes(m.paredeId)).length;
     if (perdidos > 0 && !confirm(`Os ${perdidos} módulo(s) das paredes removidas serão apagados. Continuar?`)) return;
-    atualizar({ paredes: paredes.slice(0, qtd), modulos: modulos.filter((m) => !removidas.includes(m.paredeId)) });
-    if (removidas.includes(paredeId)) setParedeId(paredes[0].id);
+    atualizar({
+      ...parcial,
+      fechado,
+      paredes: fechado ? fecharPlanta(novas) : novas,
+      modulos: modulos.filter((m) => ficam.includes(m.paredeId)),
+    });
+    if (!ficam.includes(paredeId)) setParedeId(novas[0].id);
   }
+
+  function mudarParede(parcial: Partial<Parede>, id = parede.id) {
+    const i = paredes.findIndex((p) => p.id === id);
+    let novas = paredes.map((p) => (p.id === id ? { ...p, ...parcial } : p));
+    // no fechado simples, as paredes de frente uma para a outra têm a mesma medida
+    const largura = parcial.largura;
+    if (simples && projeto.fechado && largura !== undefined && novas.length === 4) {
+      novas = novas.map((p, j) => (j === (i + 2) % 4 ? { ...p, largura } : p));
+    }
+    atualizar({ paredes: projeto.fechado ? fecharPlanta(novas) : novas });
+  }
+
+  function mudarFormato(qtd: number) {
+    const fechado = qtd === 4;
+    if (qtd === paredes.length && fechado === projeto.fechado) return;
+    const novas = paredes.slice(0, qtd).map((p) => ({ ...p, giro: 90 }));
+    while (novas.length < qtd) novas.push(paredeNova(novas.length + 1));
+    if (fechado) novas[2] = { ...novas[2], largura: novas[0].largura };
+    trocarParedes(novas, fechado);
+  }
+
+  function mudarModo(planta: Projeto['planta']) {
+    if (planta === projeto.planta) return;
+    if (planta === 'avancada') return atualizar({ planta });
+    const retas = paredes.every((p, i) => i === 0 || p.giro === 90);
+    const cabe = paredes.length <= 4 && (!projeto.fechado || paredes.length === 4);
+    if (retas && cabe) return atualizar({ planta });
+    if (!confirm('No modo simples os cantos são de 90°. A planta volta para o formato mais próximo. Continuar?')) return;
+    const qtd = Math.min(paredes.length, projeto.fechado && paredes.length >= 4 ? 4 : 3);
+    const fechado = projeto.fechado && qtd === 4;
+    const novas = paredes.slice(0, qtd).map((p) => ({ ...p, giro: 90 }));
+    if (fechado) novas[2] = { ...novas[2], largura: novas[0].largura };
+    trocarParedes(novas, fechado, { planta });
+  }
+
+  function concluirDesenho(pontos: Ponto[], fechado: boolean) {
+    setDesenhando(false);
+    trocarParedes(paredesDosPontos(pontos, fechado, paredes, paredeNova), fechado);
+  }
+
+  /** No avançado, uma parede a mais no fim (no fechado, antes da última, que fecha sozinha). */
+  function maisParede() {
+    const nova = paredeNova(paredes.length + 1);
+    const novas = projeto.fechado ? [...paredes.slice(0, -1), nova, paredes[paredes.length - 1]] : [...paredes, nova];
+    trocarParedes(
+      novas.map((p, i) => ({ ...p, nome: `Parede ${i + 1}` })),
+      projeto.fechado,
+    );
+  }
+
+  const tiraUltima = () => trocarParedes(paredes.slice(0, -1), projeto.fechado && paredes.length > 3);
+
+  /** No fechado, a última parede vem do desenho das outras: a medida dela não se digita. */
+  const calculada = (i: number) => projeto.fechado && i === paredes.length - 1;
 
   const mudar = (id: string, mudanca: Mudanca) =>
     atualizar({ modulos: modulos.map((m) => (m.id === id ? { ...m, ...mudanca } : m)) });
@@ -69,6 +139,7 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
     return r.x < -0.5 || r.y < -0.5 || r.x + r.w > parede.largura + 0.5 || r.y + r.h > parede.altura + 0.5;
   });
 
+  const aberturas = retangulosDasAberturas(parede);
   // equipamentos e painéis podem ficar sobre os móveis (TV no painel, cuba na bancada), e o envelope veste os módulos
   const solidos = daParede.filter(
     (m) => m.tipo !== 'objeto' && m.tipo !== 'envelope' && !(m.tipo === 'livre' && m.orientacao === 'frente'),
@@ -79,6 +150,7 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
       if (sobrepoe(retanguloNaTela(a, materiais), retanguloNaTela(b, materiais))) sobrepostos.push(`${a.nome} e ${b.nome}`);
     }),
   );
+  const tapando = solidos.filter((m) => aberturas.some((a) => sobrepoe(retanguloNaTela(m, materiais), a))).map((m) => m.nome);
   const noCanto = solidos.filter((m) => zonas.some((z) => sobrepoe(retanguloNaTela(m, materiais), z))).map((m) => m.nome);
 
   /**
@@ -99,7 +171,7 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
     const soEquipamento = escolhidos.every((m) => m.tipo === 'objeto');
     const obstaculos = (soEquipamento ? daParede.filter((m) => m.tipo === 'objeto') : solidos).map((m) => retanguloNaTela(m, materiais));
     const inicio = Math.max(0, ...zonas.filter((z) => z.x === 0).map((z) => z.w));
-    const x = posicaoLivre(bloco, [...obstaculos, ...zonas], inicio);
+    const x = posicaoLivre(bloco, [...obstaculos, ...zonas, ...aberturas], inicio);
     const novos = escolhidos.map((m) => ({ ...m, id: novoId(), paredeId: parede.id, x: x + m.x - minX }));
     atualizar({ modulos: [...modulos, ...novos] });
     setSelecionado(novos[0].id);
@@ -109,7 +181,65 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
     <>
       <section className="cartao">
         <CampoTexto rotulo="Cliente" valor={projeto.cliente} aoMudar={(cliente) => atualizar({ cliente })} dica="Nome do cliente" />
-        <Opcoes<number> rotulo="Formato do ambiente" valor={paredes.length} opcoes={formatos} aoMudar={mudarFormato} />
+        <Opcoes<Projeto['planta']> rotulo="Planta" valor={projeto.planta} opcoes={modos} aoMudar={mudarModo} />
+        {simples ? (
+          <Opcoes<number>
+            rotulo="Formato do ambiente"
+            valor={projeto.fechado ? 4 : paredes.length}
+            opcoes={formatos}
+            aoMudar={mudarFormato}
+          />
+        ) : (
+          <>
+            {desenhando ? (
+              <DesenharPlanta projeto={projeto} aoConcluir={concluirDesenho} aoCancelar={() => setDesenhando(false)} />
+            ) : (
+              <button type="button" className="btn" onClick={() => setDesenhando(true)}>
+                Desenhar a planta
+              </button>
+            )}
+            <div className="lista-paredes">
+              {paredes.map((p, i) => (
+                <div key={p.id} className="vao-item">
+                  <strong>{p.nome}</strong>
+                  {calculada(i) ? (
+                    <p className="dica">
+                      {fmtMedida(p.largura, u)} {u} · fecha o ambiente sozinha
+                    </p>
+                  ) : (
+                    <Linha>
+                      <CampoNumero rotulo="Comprimento" valor={p.largura} unidade={u} aoMudar={(largura) => mudarParede({ largura }, p.id)} />
+                      {i > 0 && (
+                        <CampoNumero
+                          rotulo="Canto com a anterior"
+                          valor={anguloDoCanto(p.giro)}
+                          sufixo="°"
+                          aoMudar={(angulo) => mudarParede({ giro: giroDoAngulo(angulo) }, p.id)}
+                        />
+                      )}
+                    </Linha>
+                  )}
+                </div>
+              ))}
+              <p className="dica">90° é o canto comum; 270° é quina para fora (pilar); 135° é parede inclinada.</p>
+              <div className="acoes-planta">
+                <button type="button" className="btn" onClick={maisParede}>
+                  + Parede
+                </button>
+                {paredes.length > 1 && (
+                  <button type="button" className="btn" onClick={tiraUltima}>
+                    Tirar a última
+                  </button>
+                )}
+                {paredes.length >= 3 && (
+                  <button type="button" className="btn" onClick={() => trocarParedes(paredes, !projeto.fechado)}>
+                    {projeto.fechado ? 'Abrir o ambiente' : 'Fechar o ambiente'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
+        )}
         <Linha>
           <label className="campo">
             <span>Cor da parede</span>
@@ -131,6 +261,7 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
       </section>
 
       <section className="cartao">
+        {(paredes.length > 1 || !simples) && <PlantaBaixa projeto={projeto} paredeId={parede.id} aoEscolher={setParedeId} />}
         {paredes.length > 1 && (
           <>
             <div className="opcoes">
@@ -140,13 +271,16 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
                 </button>
               ))}
             </div>
-            <p className="dica">
-              As paredes seguem em sequência: o canto direito de uma encontra o canto esquerdo da próxima. Olhe cada parede de frente.
-            </p>
           </>
         )}
         <Linha>
-          <CampoNumero rotulo="Largura da parede" valor={parede.largura} unidade={u} aoMudar={(largura) => mudarParede({ largura })} />
+          {calculada(paredes.indexOf(parede)) && !simples ? (
+            <p className="dica">
+              Largura {fmtMedida(parede.largura, u)} {u}: fecha o ambiente sozinha
+            </p>
+          ) : (
+            <CampoNumero rotulo="Largura da parede" valor={parede.largura} unidade={u} aoMudar={(largura) => mudarParede({ largura })} />
+          )}
           <CampoNumero rotulo="Altura da parede" valor={parede.altura} unidade={u} aoMudar={(altura) => mudarParede({ altura })} />
         </Linha>
         <DesenhoMovel
@@ -172,12 +306,14 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
         {foraDaParede.length > 0 && (
           <p className="alerta">Passa da parede: {foraDaParede.map((m) => m.nome).join(', ')}. Confira as medidas ou a posição.</p>
         )}
+        {tapando.length > 0 && <p className="alerta">Tapa porta ou janela: {tapando.join(', ')}.</p>}
         {noCanto.length > 0 && <p className="alerta">Bate no móvel da parede vizinha: {noCanto.join(', ')}.</p>}
         {sobrepostos.length > 0 && (
           <p className="alerta">
             Um módulo em cima do outro: {sobrepostos.join('; ')}. Para prateleira dentro do armário, use "Por dentro" na edição do módulo.
           </p>
         )}
+        <Aberturas parede={parede} unidade={u} aoMudar={(aberturas) => mudarParede({ aberturas })} />
         <p className="dica">
           {daParede.length === 0
             ? 'Toque num bloco para colocar o módulo na parede. As peças e o custo são calculados sozinhos.'

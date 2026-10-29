@@ -138,6 +138,25 @@ export interface Parede {
   nome: string;
   largura: number;
   altura: number;
+  /**
+   * Quanto se vira, em graus, saindo da parede anterior para esta, olhando a planta de cima:
+   * 90 é o canto comum (para dentro do ambiente), −90 é quina para fora (pilar), 45 é parede inclinada.
+   * Não vale para a primeira parede.
+   */
+  giro: number;
+  aberturas: Abertura[];
+}
+
+export type TipoAbertura = 'porta' | 'janela' | 'passagem';
+
+/** Porta, janela ou vão na parede, em mm: x a partir do canto esquerdo, y a partir do chão. */
+export interface Abertura {
+  id: string;
+  tipo: TipoAbertura;
+  x: number;
+  y: number;
+  largura: number;
+  altura: number;
 }
 
 export type Piso = 'madeira' | 'porcelanato' | 'cimento';
@@ -149,8 +168,11 @@ export interface Ambiente {
 
 export interface Projeto {
   cliente: string;
-  /** 1 parede = reto, 2 = em L, 3 = em U. */
+  /** 1 parede = reto, 2 = em L, 3 = em U; fechado, a última encontra a primeira. */
   paredes: Parede[];
+  /** Simples: formatos prontos com cantos de 90°. Avançada: planta desenhada, com qualquer ângulo. */
+  planta: 'simples' | 'avancada';
+  fechado: boolean;
   ambiente: Ambiente;
   materiais: Material[];
   modulos: Modulo[];

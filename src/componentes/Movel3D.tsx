@@ -16,6 +16,9 @@ import {
   PerspectiveCamera,
   PlaneGeometry,
   Scene,
+  Shape,
+  ShapeGeometry,
+  Vector2,
   Vector3,
   WebGLRenderer,
   type BufferGeometry,
@@ -23,11 +26,65 @@ import {
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { arrumacaoDoVao, espessuraDe, larguraFolhaCorrer, TRILHO_CORRER, vaosNaCaixa } from '../modulos';
-import type { Modulo, Piso, Projeto } from '../types';
+import { radianos, tracado } from '../planta';
+import type { Modulo, Parede, Piso, Projeto } from '../types';
 import { fmtMedida } from '../unidades';
 import { coresObjeto } from './DesenhoMovel';
 
 const coresPiso: Record<Piso, string> = { madeira: '#b8875a', porcelanato: '#e4e0da', cimento: '#a9a6a1' };
+
+/** Retângulo no plano, de (x, y) até (x + w, y + h). */
+function retangulo(x: number, y: number, w: number, h: number) {
+  const s = new Shape();
+  s.moveTo(x, y);
+  s.lineTo(x + w, y);
+  s.lineTo(x + w, y + h);
+  s.lineTo(x, y + h);
+  s.closePath();
+  return s;
+}
+
+/** A parede com os furos das portas e janelas, e o que vai dentro deles (folha da porta, vidro, batente). */
+function montarParedeComAberturas(parede: Parede, corParede: MaterialCena, guardar: (m: MaterialCena) => MaterialCena) {
+  const grupo = new Group();
+  const forma = retangulo(0, 0, parede.largura, parede.altura);
+  // o furo não pode encostar na borda da parede (a porta no chão), senão o recorte falha: fica 1 mm
+  forma.holes = parede.aberturas.map((a) => {
+    const x0 = Math.max(1, a.x);
+    const y0 = Math.max(1, a.y);
+    const x1 = Math.min(parede.largura - 1, a.x + a.largura);
+    const y1 = Math.min(parede.altura - 1, a.y + a.altura);
+    return retangulo(x0, y0, Math.max(1, x1 - x0), Math.max(1, y1 - y0));
+  });
+  const plano = new Mesh(new ShapeGeometry(forma), corParede);
+  plano.receiveShadow = true;
+  plano.userData.parede = true;
+  grupo.add(plano);
+  if (parede.aberturas.length === 0) return grupo;
+
+  const batente = guardar(new MeshStandardMaterial({ color: new Color('#f4f1ec'), roughness: 0.6 }));
+  const folha = guardar(new MeshStandardMaterial({ color: new Color('#c9a77f'), roughness: 0.7 }));
+  const vidro = guardar(new MeshStandardMaterial({ color: new Color('#bcd7e6'), roughness: 0.1, transparent: true, opacity: 0.55 }));
+  const caixa = (x: number, y: number, z: number, w: number, h: number, d: number, m: MaterialCena) => {
+    const b = new Mesh(new BoxGeometry(w, h, d), m);
+    b.position.set(x + w / 2, y + h / 2, z + d / 2);
+    b.userData.parede = true;
+    grupo.add(b);
+  };
+  const g = 50; // largura do batente
+  const fundo = 150; // espessura da parede atrás do batente
+  for (const a of parede.aberturas) {
+    caixa(a.x - g, a.y, -fundo, g, a.altura + g, fundo + 15, batente);
+    caixa(a.x + a.largura, a.y, -fundo, g, a.altura + g, fundo + 15, batente);
+    caixa(a.x, a.y + a.altura, -fundo, a.largura, g, fundo + 15, batente);
+    if (a.tipo === 'janela') {
+      caixa(a.x - g, a.y - g, -fundo, a.largura + 2 * g, g, fundo + 40, batente);
+      caixa(a.x, a.y, -fundo / 2, a.largura, a.altura, 8, vidro);
+    }
+    if (a.tipo === 'porta') caixa(a.x, a.y, -fundo + 20, a.largura, a.altura, 35, folha);
+  }
+  return grupo;
+}
 
 /**
  * Monta os módulos de uma parede, peça por peça, em mm: x ao longo da parede a partir do canto
@@ -255,38 +312,30 @@ export default function Movel3D({ projeto, reserva }: Props) {
     cena.background = new Color('#f7f4ef');
     const corParede = guardar(new MeshStandardMaterial({ color: new Color(ambiente.corParede), roughness: 0.95 }));
 
-    // cada parede gira 90° em relação à anterior e começa onde a anterior termina
+    // cada parede começa onde a anterior termina, virando o canto que a planta manda
     const moveis = new Group();
-    const origem = new Vector3();
-    const direcao = new Vector3(1, 0, 0);
+    const planta = tracado(paredes);
     const normais: Vector3[] = [];
-    /** Pontos onde as paredes começam, mais o fim da última. */
-    const cantos: Vector3[] = [];
+    /** Pontos onde as paredes começam, mais o fim da última; o y da planta vira o z. */
+    const cantos = planta.pontos.map((p) => new Vector3(p.x, 0, p.y));
     paredes.forEach((parede, i) => {
-      cantos.push(origem.clone());
       const grupo = new Group();
-      grupo.position.copy(origem);
-      grupo.rotation.y = (-i * Math.PI) / 2;
-      const plano = new Mesh(new PlaneGeometry(parede.largura, parede.altura), corParede);
-      plano.position.set(parede.largura / 2, parede.altura / 2, 0);
-      plano.receiveShadow = true;
-      grupo.add(plano);
+      grupo.position.copy(cantos[i]);
+      grupo.rotation.y = -radianos(planta.direcoes[i]);
+      grupo.add(montarParedeComAberturas(parede, corParede, guardar));
       const daParede = projeto.modulos.filter((m) => m.paredeId === parede.id);
       const conteudo = montarParede(projeto, daParede, guardar);
       grupo.add(conteudo);
       moveis.add(grupo);
       normais.push(new Vector3(Math.sin(grupo.rotation.y), 0, Math.cos(grupo.rotation.y)));
-      origem.addScaledVector(direcao, parede.largura);
-      direcao.set(-direcao.z, 0, direcao.x);
     });
-    cantos.push(origem.clone());
     cena.add(moveis);
 
     // só os móveis definem o enquadramento; sem móveis, as paredes
     const caixa = new Box3();
     moveis.updateMatrixWorld(true);
     moveis.traverse((o) => {
-      if (o instanceof Mesh && !(o.geometry instanceof PlaneGeometry)) caixa.expandByObject(o);
+      if (o instanceof Mesh && !o.userData.parede) caixa.expandByObject(o);
     });
     const temMovel = !caixa.isEmpty();
     if (!temMovel) caixa.setFromObject(moveis);
@@ -305,17 +354,20 @@ export default function Movel3D({ projeto, reserva }: Props) {
       if (n.x > 0.5) x0 = c.x;
       if (n.x < -0.5) x1 = c.x;
     });
-    const piso = new Mesh(
-      new PlaneGeometry(x1 - x0, z1 - z0),
-      guardar(new MeshStandardMaterial({ color: new Color(coresPiso[ambiente.piso]), roughness: 0.85 })),
-    );
+    const corPiso = guardar(new MeshStandardMaterial({ color: new Color(coresPiso[ambiente.piso]), roughness: 0.85 }));
+    // no ambiente fechado o piso é o próprio desenho da planta
+    const piso = projeto.fechado
+      ? new Mesh(new ShapeGeometry(new Shape(planta.pontos.map((p) => new Vector2(p.x, -p.y)))), corPiso)
+      : new Mesh(new PlaneGeometry(x1 - x0, z1 - z0), corPiso);
     piso.rotation.x = -Math.PI / 2;
-    piso.position.set((x0 + x1) / 2, 0, (z0 + z1) / 2);
+    if (!projeto.fechado) piso.position.set((x0 + x1) / 2, 0, (z0 + z1) / 2);
     piso.receiveShadow = true;
     cena.add(piso);
 
     // a câmera olha para o canto do ambiente, de frente para as paredes
-    const olhar = normais.reduce((s, n) => s.add(n), new Vector3());
+    // no fechado, as normais se anulam: olha para o canto das duas primeiras paredes
+    const olhar = (projeto.fechado ? normais.slice(0, 2) : normais).reduce((s, n) => s.clone().add(n), new Vector3());
+    if (olhar.length() < 0.1) olhar.copy(normais[0]);
     if (paredes.length === 1) olhar.x += 0.45;
     // no U, olhar de frente esconde as portas das laterais: puxa a câmera para o lado da primeira parede
     if (paredes.length === 3) olhar.addScaledVector(normais[0], 0.55);

@@ -6,11 +6,12 @@ import {
   encaixar,
   encaixarBorda,
   espessuraDe,
+  retangulosDasAberturas,
   retangulosDeEncaixe,
   retanguloNaTela,
   vaosNaCaixa,
 } from '../modulos';
-import type { Material, Modulo, Parede, TipoObjeto, Unidade } from '../types';
+import type { Abertura, Material, Modulo, Parede, TipoObjeto, Unidade } from '../types';
 import { fmtMedida } from '../unidades';
 
 /** Área do desenho no SVG. O eixo y do SVG desce, então y = −altura a partir do chão. */
@@ -170,7 +171,7 @@ export function DesenhoMovel(props: Props) {
     const o = arraste.original;
     const tolerancia = escala / 30;
     // encaixa também nos cantos e no teto da parede, e nos móveis que vêm da parede vizinha
-    const outros = [retParede, ...zonas, ...modulos.filter((x) => x.id !== m.id).flatMap((x) => retangulosDeEncaixe(x, materiais))];
+    const outros = [retParede, ...zonas, ...retangulosDasAberturas(parede), ...modulos.filter((x) => x.id !== m.id).flatMap((x) => retangulosDeEncaixe(x, materiais))];
 
     if (!arraste.canto) {
       const encaixe = encaixar({ ...o, x: o.x + dx, y: o.y + dy }, outros, tolerancia);
@@ -241,6 +242,9 @@ export function DesenhoMovel(props: Props) {
         {zonas.map((z, i) => (
           <rect key={i} x={z.x} y={-(z.y + z.h)} width={z.w} height={z.h} fill={`url(#${idHachura})`} className="canto" />
         ))}
+        {parede.aberturas.map((a) => (
+          <FiguraAbertura key={a.id} a={a} escala={escala} />
+        ))}
         <line x1={limites.x} x2={limites.x + limites.w} y1={0} y2={0} className="chao" />
         {posicionados.map((m, i) => (
           <g
@@ -303,6 +307,34 @@ export function DesenhoMovel(props: Props) {
         {rets.length > 0 && ` · Móvel ${fmtMedida(larguraTotal, u)} × ${fmtMedida(alturaTotal, u)} ${u}`}
       </figcaption>
     </figure>
+  );
+}
+
+const nomesAbertura = { porta: 'Porta', janela: 'Janela', passagem: 'Passagem' };
+
+/** Porta, janela ou passagem na parede, por trás dos móveis. */
+function FiguraAbertura({ a, escala }: { a: Abertura; escala: number }) {
+  const topo = -(a.y + a.altura);
+  const batente = Math.min(60, a.largura / 8);
+  return (
+    <g className={`abertura ${a.tipo}`}>
+      <rect x={a.x} y={topo} width={a.largura} height={a.altura} className="vao-abertura" />
+      {a.tipo === 'porta' && (
+        <>
+          <rect x={a.x + batente} y={topo + batente} width={a.largura - 2 * batente} height={a.altura - batente} className="folha" />
+          <circle cx={a.x + a.largura - batente * 2.2} cy={-(a.y + 1000)} r={escala / 160} className="macaneta" />
+        </>
+      )}
+      {a.tipo === 'janela' && (
+        <>
+          <rect x={a.x + batente} y={topo + batente} width={a.largura - 2 * batente} height={a.altura - 2 * batente} className="vidro" />
+          <line x1={a.x + a.largura / 2} x2={a.x + a.largura / 2} y1={topo + batente} y2={-a.y - batente} className="caixilho" />
+        </>
+      )}
+      <text x={a.x + a.largura / 2} y={topo + a.altura / 2} fontSize={escala / 45} textAnchor="middle" dominantBaseline="middle">
+        {nomesAbertura[a.tipo]}
+      </text>
+    </g>
   );
 }
 

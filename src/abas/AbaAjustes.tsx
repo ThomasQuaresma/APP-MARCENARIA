@@ -1,5 +1,6 @@
 import { CampoNumero, CampoTexto, CampoTextoLongo, Linha, Opcoes } from '../componentes/campos';
 import type { ReactNode } from 'react';
+import { avisar, confirmar } from '../componentes/Confirmacao';
 import { kitCorrerPadrao, kitGavetaPadrao } from '../estado';
 import type { Ajustes, ItemKit, Projeto, Unidade } from '../types';
 import { fmtReais } from '../unidades';
@@ -78,8 +79,13 @@ function EditorKit({ titulo, dica, unidade, itens, aoMudar, sugestao, children }
         <button
           type="button"
           className="btn"
-          onClick={() => {
-            if (confirm('Voltar para a lista sugerida? Os itens que você mudou serão trocados.')) aoMudar(sugestao());
+          onClick={async () => {
+            const ok = await confirmar({
+              titulo: 'Usar a lista sugerida?',
+              mensagem: 'Os itens que você mudou serão trocados pela sugestão.',
+              botao: 'Usar a sugestão',
+            });
+            if (ok) aoMudar(sugestao());
           }}
         >
           Usar a sugestão
@@ -123,7 +129,7 @@ export function AbaAjustes({ projeto, atualizar }: Props) {
                   try {
                     mudar({ logo: await lerLogo(arquivo) });
                   } catch {
-                    alert('Não consegui abrir essa imagem. Tente outra (PNG ou JPG).');
+                    avisar('Não deu para abrir essa imagem', 'Tente outra, em PNG ou JPG.');
                   }
                 }}
               />

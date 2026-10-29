@@ -1,3 +1,4 @@
+import { confirmar } from './Confirmacao';
 import type { ReactNode } from 'react';
 
 interface Props {
@@ -23,8 +24,9 @@ export function Modal({ titulo, aoFechar, aoSalvar, aoExcluir, children }: Props
           {aoExcluir && (
             <button
               className="btn btn-perigo"
-              onClick={() => {
-                if (confirm('Excluir este item?')) aoExcluir();
+              onClick={async () => {
+                const ok = await confirmar({ titulo: `Excluir ${titulo.replace(/^Editar\s+/i, '').toLowerCase()}?`, mensagem: 'Não dá para desfazer.', botao: 'Excluir', perigo: true });
+                if (ok) aoExcluir();
               }}
             >
               Excluir

@@ -1,5 +1,6 @@
 import { useState, type Dispatch, type SetStateAction } from 'react';
 import { Aberturas, EditorAbertura } from '../componentes/Aberturas';
+import { confirmar } from '../componentes/Confirmacao';
 import { BarraModulos } from '../componentes/BarraModulos';
 import { CampoNumero, CampoTexto, Linha, Opcoes } from '../componentes/campos';
 import { DesenhoMovel, type Mudanca } from '../componentes/DesenhoMovel';
@@ -51,10 +52,19 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
    * Troca as paredes do ambiente. Os módulos das paredes que saem são apagados (pergunta antes);
    * no ambiente fechado, a última parede é recalculada para encontrar a primeira.
    */
-  function trocarParedes(novas: Parede[], fechado: boolean, parcial: Partial<Projeto> = {}) {
+  async function trocarParedes(novas: Parede[], fechado: boolean, parcial: Partial<Projeto> = {}) {
     const ficam = novas.map((p) => p.id);
     const perdidos = modulos.filter((m) => !ficam.includes(m.paredeId)).length;
-    if (perdidos > 0 && !confirm(`Os ${perdidos} módulo(s) das paredes removidas serão apagados. Continuar?`)) return;
+    if (
+      perdidos > 0 &&
+      !(await confirmar({
+        titulo: 'Apagar os módulos dessas paredes?',
+        mensagem: `${perdidos === 1 ? '1 módulo está' : `${perdidos} módulos estão`} nas paredes que saem e ${perdidos === 1 ? 'será apagado' : 'serão apagados'}.`,
+        botao: 'Apagar e continuar',
+        perigo: true,
+      }))
+    )
+      return;
     atualizar({
       ...parcial,
       fechado,
@@ -76,12 +86,16 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
   }
 
   /** O simples é sempre o ambiente fechado de 4 paredes em retângulo. */
-  function mudarModo(planta: Projeto['planta']) {
+  async function mudarModo(planta: Projeto['planta']) {
     if (planta === projeto.planta) return;
     if (planta === 'avancada') return atualizar({ planta });
     const retas = paredes.every((p, i) => i === 0 || p.giro === 90);
     if (retas && projeto.fechado && paredes.length === 4) return atualizar({ planta });
-    if (!confirm('No modo simples o ambiente tem 4 paredes com cantos de 90°. A planta volta para esse formato. Continuar?')) return;
+    const ok = await confirmar({
+      titulo: 'Voltar para a planta simples?',
+      mensagem: 'No modo simples o ambiente tem 4 paredes com cantos de 90°. A planta desenhada volta para esse formato.',
+    });
+    if (!ok) return;
     trocarParedes(quatroParedes(paredes), true, { planta });
   }
 
@@ -143,8 +157,9 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
   /** Liga ou desliga o mármore em cima do balcão: só para mostrar ao cliente, não entra no custo. */
   const trocarPedra = (m: Modulo) => atualizar({ modulos: modulos.map((o) => (o.id === m.id ? { ...o, pedra: !o.pedra } : o)) });
 
-  function excluir(m: Modulo) {
-    if (!confirm(`Excluir ${m.nome}?`)) return;
+  async function excluir(m: Modulo) {
+    const ok = await confirmar({ titulo: `Excluir ${m.nome}?`, mensagem: 'O módulo sai do desenho e do orçamento.', botao: 'Excluir', perigo: true });
+    if (!ok) return;
     atualizar({ modulos: removerDaLista(modulos, m.id) });
     setSelecionado(null);
   }

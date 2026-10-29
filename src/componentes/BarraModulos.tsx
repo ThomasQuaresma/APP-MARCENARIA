@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { catalogo } from '../catalogo';
+import { confirmar } from './Confirmacao';
 import { medidasTexto } from '../modulos';
 import type { Material, Modulo, Unidade } from '../types';
 
@@ -51,8 +52,14 @@ export function BarraModulos({ materiais, biblioteca, unidade, aoEscolher, aoRem
                 type="button"
                 className="remover"
                 aria-label={`Remover o modelo ${b.nome}`}
-                onClick={() => {
-                  if (confirm(`Remover o modelo "${b.nome}"?`)) aoRemoverModelo(b.id);
+                onClick={async () => {
+                  const ok = await confirmar({
+                    titulo: `Remover o modelo "${b.nome}"?`,
+                    mensagem: 'Ele sai dos seus modelos salvos. Os orçamentos que já usam esse módulo não mudam.',
+                    botao: 'Remover',
+                    perigo: true,
+                  });
+                  if (ok) aoRemoverModelo(b.id);
                 }}
               >
                 ×

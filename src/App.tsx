@@ -5,6 +5,7 @@ import { AbaOrcamento } from './abas/AbaOrcamento';
 import { AbaProjeto } from './abas/AbaProjeto';
 import { ListaOrcamentos } from './abas/ListaOrcamentos';
 import { AvisoAtualizacao } from './componentes/AvisoAtualizacao';
+import { Confirmacoes } from './componentes/Confirmacao';
 import { useBiblioteca, useOrcamentos } from './estado';
 
 // o plano de corte fica guardado (AbaCorte), mas fora do menu: o app é para orçar, não para cortar
@@ -47,6 +48,7 @@ export default function App() {
             aoCriar={() => entrar(novo)}
           />
         </main>
+        <Confirmacoes />
       </div>
     );
   }
@@ -87,6 +89,7 @@ export default function App() {
           </button>
         ))}
       </nav>
+      <Confirmacoes />
     </div>
   );
 }

@@ -15,6 +15,7 @@ import {
 import { novoId } from '../estado';
 import type { Abertura, Material, Modulo, Parede, TipoObjeto, Unidade } from '../types';
 import { fmtMedida } from '../unidades';
+import { confirmar } from './Confirmacao';
 
 /** Área do desenho no SVG. O eixo y do SVG desce, então y = −altura a partir do chão. */
 interface Limites {
@@ -412,8 +413,14 @@ export function DesenhoMovel(props: Props) {
           <button
             type="button"
             className="btn btn-perigo"
-            onClick={() => {
-              if (!confirm(`Excluir esta ${nomesAbertura[abSel.tipo].toLowerCase()}?`)) return;
+            onClick={async () => {
+              const ok = await confirmar({
+                titulo: `Excluir esta ${nomesAbertura[abSel.tipo].toLowerCase()}?`,
+                mensagem: 'Ela sai do desenho, da planta e do 3D.',
+                botao: 'Excluir',
+                perigo: true,
+              });
+              if (!ok) return;
               aoMudarAberturas(parede.aberturas.filter((x) => x.id !== abSel.id));
               setSelecionado(null);
             }}

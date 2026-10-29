@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { calcular, listaDeCompras, precoDe, temSugestaoDeMaoDeObra } from '../calculo';
 import { CampoNumero, Linha, Opcoes } from '../componentes/campos';
+import { confirmar } from '../componentes/Confirmacao';
 import { DocumentoOrcamento, textoParaCliente } from '../componentes/Documento';
 import { ListaDeCompras } from '../componentes/ListaCompras';
 import { situacoes } from '../estado';
@@ -32,8 +33,14 @@ export function AbaOrcamento({ projeto, atualizar, aoDuplicar, aoExcluir }: Prop
       </button>
       <button
         className="btn btn-perigo"
-        onClick={() => {
-          if (confirm(`Excluir o orçamento nº ${projeto.codigo}? Não dá para desfazer.`)) aoExcluir();
+        onClick={async () => {
+          const ok = await confirmar({
+            titulo: `Excluir o orçamento nº ${projeto.codigo}?`,
+            mensagem: 'Ele sai da lista e não dá para desfazer.',
+            botao: 'Excluir',
+            perigo: true,
+          });
+          if (ok) aoExcluir();
         }}
       >
         Excluir

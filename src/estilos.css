@@ -1471,3 +1471,30 @@ main > section {
   fill: #ebe8e3;
   stroke: #9c968e;
 }
+
+/* confirmações e avisos do app (no lugar dos popups do navegador) */
+
+.confirmacao-fundo {
+  z-index: 40;
+  align-items: center;
+  padding: 16px;
+}
+
+.confirmacao {
+  max-width: 420px;
+  border-radius: 18px;
+}
+
+.confirmacao h2 {
+  font-size: 1.1rem;
+}
+
+.confirmacao footer .btn {
+  flex: 1;
+}
+
+.btn-perigo-cheio {
+  background: var(--perigo);
+  border-color: var(--perigo);
+  color: #fff;
+}

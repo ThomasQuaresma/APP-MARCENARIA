@@ -98,9 +98,12 @@ function comRetangulo(m: Modulo, r: Retangulo): Modulo {
   return { ...m, x: r.x, y: r.y, largura: eixos.w ? r.w : m.largura, altura: eixos.h ? r.h : m.altura };
 }
 
+/** No meio de cada lado: muda só a largura ou só a altura. Vêm antes dos cantos, que ficam por cima no toque. */
+const MEIOS: Canto[] = [{ sx: -1, sy: 0 }, { sx: 1, sy: 0 }, { sx: 0, sy: -1 }, { sx: 0, sy: 1 }];
+
 function cantosDe(m: Modulo): Canto[] {
   const { w, h } = eixosAjustaveis(m);
-  if (w && h) return [{ sx: -1, sy: -1 }, { sx: 1, sy: -1 }, { sx: -1, sy: 1 }, { sx: 1, sy: 1 }];
+  if (w && h) return [...MEIOS, { sx: -1, sy: -1 }, { sx: 1, sy: -1 }, { sx: -1, sy: 1 }, { sx: 1, sy: 1 }];
   if (w) return [{ sx: -1, sy: 0 }, { sx: 1, sy: 0 }];
   if (h) return [{ sx: 0, sy: -1 }, { sx: 0, sy: 1 }];
   return [];
@@ -108,8 +111,8 @@ function cantosDe(m: Modulo): Canto[] {
 
 /** Porta e passagem ficam no chão: só mudam a largura e a altura por cima. */
 function cantosDaAbertura(a: Abertura): Canto[] {
-  if (a.tipo !== 'janela') return [{ sx: -1, sy: 1 }, { sx: 1, sy: 1 }, { sx: 0, sy: 1 }];
-  return [{ sx: -1, sy: -1 }, { sx: 1, sy: -1 }, { sx: -1, sy: 1 }, { sx: 1, sy: 1 }];
+  if (a.tipo !== 'janela') return [{ sx: -1, sy: 0 }, { sx: 1, sy: 0 }, { sx: 0, sy: 1 }, { sx: -1, sy: 1 }, { sx: 1, sy: 1 }];
+  return [...MEIOS, { sx: -1, sy: -1 }, { sx: 1, sy: -1 }, { sx: -1, sy: 1 }, { sx: 1, sy: 1 }];
 }
 
 const retanguloDaAbertura = (a: Abertura): Retangulo => ({ x: a.x, y: a.y, w: a.largura, h: a.altura });
@@ -448,7 +451,14 @@ export function DesenhoMovel(props: Props) {
         )}
         {retSel && <Cotas r={retSel} parede={parede} unidade={u} fonte={fonteCota} afastamento={afastamento} />}
         {retSel &&
-          cantosSel.map((c) => {
+          cantosSel
+            // em peça pequena, as bolinhas do meio tomariam o lugar de arrastar: ficam só as dos cantos
+            .filter((c) => {
+              const temCantos = cantosSel.some((o) => o.sx !== 0 && o.sy !== 0);
+              if (!temCantos || (c.sx !== 0 && c.sy !== 0)) return true;
+              return (c.sx === 0 ? retSel.w : retSel.h) >= escalaVista / 5;
+            })
+            .map((c) => {
             const topo = -(retSel.y + retSel.h);
             const cx = c.sx < 0 ? retSel.x : c.sx > 0 ? retSel.x + retSel.w : retSel.x + retSel.w / 2;
             const cy = c.sy > 0 ? topo : c.sy < 0 ? topo + retSel.h : topo + retSel.h / 2;
@@ -463,8 +473,20 @@ export function DesenhoMovel(props: Props) {
                 }}
               >
                 {/* círculo grande e invisível, do tamanho de um dedo */}
-                <circle cx={cx} cy={cy} r={escalaVista / 26} className="alca-toque" />
-                <circle cx={cx} cy={cy} r={escalaVista / 110} className="alca-ponto" />
+                <circle cx={cx} cy={cy} r={c.sx !== 0 && c.sy !== 0 ? escalaVista / 26 : escalaVista / 34} className="alca-toque" />
+                {c.sx !== 0 && c.sy !== 0 ? (
+                  <circle cx={cx} cy={cy} r={escalaVista / 110} className="alca-ponto" />
+                ) : (
+                  // tracinho no sentido do lado: mostra que ele só puxa aquele lado
+                  <rect
+                    x={cx - (c.sx === 0 ? escalaVista / 60 : escalaVista / 170)}
+                    y={cy - (c.sx === 0 ? escalaVista / 170 : escalaVista / 60)}
+                    width={c.sx === 0 ? escalaVista / 30 : escalaVista / 85}
+                    height={c.sx === 0 ? escalaVista / 85 : escalaVista / 30}
+                    rx={escalaVista / 170}
+                    className="alca-ponto"
+                  />
+                )}
               </g>
             );
           })}

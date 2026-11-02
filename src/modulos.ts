@@ -298,6 +298,83 @@ export function arrumacaoDoVao(v: Vao, A: number, e: number) {
 export const ladosPadrao: LadosTamponamento = { esquerda: true, direita: true, tampo: true, fundo: false };
 export const ladosDe = (m: Modulo) => m.lados ?? ladosPadrao;
 
+const mesmaLinha = (a: Modulo, b: Modulo) =>
+  a.tipo === 'caixa' && b.tipo === 'caixa' && a.paredeId === b.paredeId && Math.abs(a.y - b.y) < 1 && Math.abs(a.altura - b.altura) < 1;
+
+/** A caixa e as encostadas nela, em sequência, na mesma altura. */
+export function linhaDaCaixa(m: Modulo, modulos: Modulo[]): Modulo[] {
+  const linha = [m];
+  for (let achou = true; achou; ) {
+    achou = false;
+    for (const o of modulos) {
+      if (linha.includes(o) || !mesmaLinha(o, m)) continue;
+      if (linha.some((c) => Math.abs(c.x + c.largura - o.x) <= 1 || Math.abs(o.x + o.largura - c.x) <= 1)) {
+        linha.push(o);
+        achou = true;
+      }
+    }
+  }
+  return linha.sort((a, b) => a.x - b.x);
+}
+
+/**
+ * Tamponamento das caixas tamponadas, calculado a cada vez: peças só nas pontas de cada sequência de caixas
+ * encostadas, sem nada no meio. Mover, excluir ou mudar o tamanho da caixa já acerta as peças.
+ * O balcão leva só as laterais; o aéreo leva também o tampo.
+ */
+export function tamponamentosAutomaticos(modulos: Modulo[], materiais: Material[], avanco: number): Modulo[] {
+  const tamponadas = modulos.filter((m) => m.tipo === 'caixa' && m.tamponado);
+  const vistas = new Set<Modulo>();
+  const resultado: Modulo[] = [];
+  for (const m of tamponadas) {
+    if (vistas.has(m)) continue;
+    const linha = linhaDaCaixa(m, tamponadas);
+    linha.forEach((c) => vistas.add(c));
+    const primeira = linha[0];
+    const ultima = linha[linha.length - 1];
+    const materialId = primeira.materialFrenteId || primeira.materialId;
+    const e = espessuraDe(materialId, materiais);
+    // encostada numa caixa de outro tamanho não há lugar para a lateral
+    const vizinha = (borda: number, lado: 'esq' | 'dir') =>
+      modulos.some(
+        (o) =>
+          o.tipo === 'caixa' &&
+          !linha.includes(o) &&
+          o.paredeId === m.paredeId &&
+          o.y < m.y + m.altura &&
+          o.y + o.altura > m.y &&
+          Math.abs((lado === 'esq' ? o.x + o.largura : o.x) - borda) <= 1,
+      );
+    const fim = ultima.x + ultima.largura;
+    const esquerda = !!primeira.tamponado?.esquerda && !vizinha(primeira.x, 'esq');
+    const direita = !!ultima.tamponado?.direita && !vizinha(fim, 'dir');
+    const tampo = m.y + m.altura > ALTURA_BALCAO;
+    if (!esquerda && !direita && !tampo) continue;
+    const x = primeira.x - (esquerda ? e : 0);
+    resultado.push({
+      ...primeira,
+      id: `tamponamento-${primeira.id}`,
+      nome: 'Tamponamento',
+      tipo: 'envelope',
+      materialId,
+      materialFundoId: null,
+      frente: 'nenhuma',
+      qtdFrente: 0,
+      vaos: [],
+      x,
+      largura: fim + (direita ? e : 0) - x,
+      altura: m.altura + (tampo ? e : 0),
+      profundidade: Math.max(...linha.map((c) => c.profundidade)) + avanco,
+      lados: { esquerda, direita, tampo, fundo: false },
+      canto: undefined,
+      pedra: false,
+      travas: false,
+      tamponado: undefined,
+    });
+  }
+  return resultado;
+}
+
 /** Onde fica a lateral do tamponamento, na tela; null quando ela não existe. */
 export function lateralDoTamponamento(m: Modulo, lado: 'esquerda' | 'direita', materiais: Material[]): Retangulo | null {
   if (m.tipo !== 'envelope' || !ladosDe(m)[lado]) return null;
@@ -412,7 +489,7 @@ export const moldes: { id: Molde; nome: string; icone: string }[] = [
   { id: 'prateleira', nome: 'Prateleira de parede', icone: '➖' },
   { id: 'livre', nome: 'Peça livre', icone: '▭' },
   { id: 'base', nome: 'Base (rodapé)', icone: '▁' },
-  { id: 'envelope', nome: 'Tamponamento', icone: '⊓' },
+  { id: 'envelope', nome: 'Peça única (painel, tampo)', icone: '⊓' },
 ];
 
 export function moduloDoMolde(molde: Molde, nome: string, materiais: Material[]): Modulo {

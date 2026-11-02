@@ -8,7 +8,7 @@ import { EditorModulo } from '../componentes/editores';
 import { anguloDoCanto, DesenharPlanta, giroDoAngulo, PlantaBaixa } from '../componentes/Planta';
 import { Ver3D } from '../componentes/Ver3D';
 import { novaParede, novoId, quatroParedes, removerDaLista, salvarNaLista } from '../estado';
-import { ALTURA_BALCAO, espessuraDe, ladosPadrao, lateraisDosTamponamentos, moduloDoMolde, posicaoLivre, retangulosDasAberturas, retanguloNaTela, sobrepoe, zonasDeCanto } from '../modulos';
+import { espessuraDe, lateraisDosTamponamentos, linhaDaCaixa, posicaoLivre, retangulosDasAberturas, retanguloNaTela, sobrepoe, zonasDeCanto } from '../modulos';
 import { fecharPlanta, paredesDosPontos, type Ponto } from '../planta';
 import { fmtMedida } from '../unidades';
 import type { Abertura, Ambiente, Modulo, Parede, Piso, Projeto } from '../types';
@@ -119,8 +119,21 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
   /** No fechado, a última parede vem do desenho das outras: a medida dela não se digita. */
   const calculada = (i: number) => projeto.fechado && i === paredes.length - 1;
 
+  /** A caixa tamponada solta na parede não deixa a lateral passar da parede. */
+  function dentroDaParede(m: Modulo): Modulo {
+    if (!m.tamponado) return m;
+    const e = espessuraDe(m.materialFrenteId || m.materialId, materiais);
+    const encosta = (lado: 'esq' | 'dir') =>
+      daParede.some(
+        (o) => o.id !== m.id && o.tipo === 'caixa' && o.y < m.y + m.altura && o.y + o.altura > m.y && Math.abs((lado === 'esq' ? o.x + o.largura : o.x) - (lado === 'esq' ? m.x : m.x + m.largura)) <= 1,
+      );
+    if (m.tamponado.esquerda && m.x < e && !encosta('esq')) return { ...m, x: e };
+    if (m.tamponado.direita && m.x + m.largura + e > parede.largura && !encosta('dir')) return { ...m, x: parede.largura - m.largura - e };
+    return m;
+  }
+
   const mudar = (id: string, mudanca: Mudanca) =>
-    atualizar({ modulos: modulos.map((m) => (m.id === id ? { ...m, ...mudanca } : m)) });
+    atualizar({ modulos: modulos.map((m) => (m.id === id ? dentroDaParede({ ...m, ...mudanca }) : m)) });
 
   /** A cópia entra logo à direita do original, com a mesma altura do chão. */
   function duplicar(m: Modulo) {
@@ -131,65 +144,50 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
   }
 
   /**
-   * Veste a caixa e as que estão encostadas nela, na mesma altura, com um tamponamento só: as caixas ficam
-   * juntas e as peças só nas pontas. Tamponamentos que já estavam ali entram no novo. Mais fundo que as caixas
-   * (o avanço dos Ajustes), na chapa das portas; a caixa de baixo leva só as laterais, a de cima leva o tampo.
+   * Liga o tamponamento na caixa e nas encostadas nela; as peças saem sozinhas, só nas pontas. Tamponamentos
+   * soltos de antes, em volta delas, são trocados, e as caixas ficam juntas e dentro da parede.
    */
   function tamponar(m: Modulo) {
-    const material = m.materialFrenteId || m.materialId;
-    const e = espessuraDe(material, materiais);
-    const baixo = m.y + m.altura <= ALTURA_BALCAO;
-    const altura = m.altura + (baixo ? 0 : e);
+    if (m.tamponado) {
+      const linha = linhaDaCaixa(m, daParede);
+      atualizar({ modulos: modulos.map((o) => (linha.includes(o) ? { ...o, tamponado: undefined } : o)) });
+      return m.id;
+    }
+    const e = espessuraDe(m.materialFrenteId || m.materialId, materiais);
     const naLinha = daParede.filter((o) => o.tipo === 'caixa' && Math.abs(o.y - m.y) < 1 && Math.abs(o.altura - m.altura) < 1);
-    const vestidos = daParede.filter((o) => o.tipo === 'envelope' && Math.abs(o.y - m.y) < 1 && Math.abs(o.altura - altura) < 1);
-    const caixas = [m];
+    const soltos = daParede.filter((o) => o.tipo === 'envelope' && Math.abs(o.y - m.y) < 1);
+    const caixas = [...linhaDaCaixa(m, daParede)];
     const antigos: Modulo[] = [];
     for (let achou = true; achou; ) {
       achou = false;
       const inicio = Math.min(...caixas.map((o) => o.x));
       const fim = Math.max(...caixas.map((o) => o.x + o.largura));
-      for (const v of vestidos) {
+      for (const v of soltos) {
         if (antigos.includes(v) || v.x > fim + e + 1 || v.x + v.largura < inicio - e - 1) continue;
         antigos.push(v);
         achou = true;
         for (const o of naLinha) if (!caixas.includes(o) && o.x >= v.x - 1 && o.x + o.largura <= v.x + v.largura + 1) caixas.push(o);
       }
-      for (const o of naLinha) {
-        if (caixas.includes(o) || o.x > fim + 1 || o.x + o.largura < inicio - 1) continue;
-        caixas.push(o);
-        achou = true;
-      }
     }
     caixas.sort((a, b) => a.x - b.x);
-    const x = Math.max(0, Math.min(caixas[0].x - e, ...antigos.map((v) => v.x)));
-    const novasPosicoes = new Map<string, number>();
-    let proximo = x + e;
+    const total = caixas.reduce((t, o) => t + o.largura, 0);
+    const inicioAntigo = Math.min(caixas[0].x, ...antigos.map((v) => v.x + e));
+    const x0 = Math.max(e, Math.min(inicioAntigo, parede.largura - total - e));
+    const posicoes = new Map<string, number>();
+    let proximo = x0;
     for (const o of caixas) {
-      novasPosicoes.set(o.id, proximo);
+      posicoes.set(o.id, proximo);
       proximo += o.largura;
     }
-    const t: Modulo = {
-      ...moduloDoMolde('envelope', 'Tamponamento', materiais),
-      id: novoId(),
-      paredeId: m.paredeId,
-      materialId: material,
-      x,
-      y: m.y,
-      largura: proximo + e - x,
-      altura,
-      profundidade: Math.max(...caixas.map((o) => o.profundidade)) + ajustes.avancoTamponamento,
-      lados: { ...ladosPadrao, tampo: !baixo },
-    };
     atualizar({
-      modulos: [
-        ...modulos.filter((o) => !antigos.includes(o)).map((o) => {
-          const novoX = novasPosicoes.get(o.id);
-          return novoX === undefined ? o : { ...o, x: novoX };
+      modulos: modulos
+        .filter((o) => !antigos.includes(o))
+        .map((o) => {
+          const x = posicoes.get(o.id);
+          return x === undefined ? o : { ...o, x, tamponado: { esquerda: true, direita: true } };
         }),
-        t,
-      ],
     });
-    return t.id;
+    return m.id;
   }
 
   /** Liga ou desliga o mármore em cima do balcão: só para mostrar ao cliente, não entra no custo. */
@@ -247,7 +245,20 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
     // o canto em L já entra no canto da parede
     const sozinho = escolhidos.length === 1 ? escolhidos[0].canto : undefined;
     const x = sozinho ? (sozinho.lado === 'direita' ? parede.largura - bloco.w : 0) : posicaoLivre(bloco, [...obstaculos, ...zonas, ...aberturas], inicio);
-    const novos = escolhidos.map((m) => ({ ...m, id: novoId(), paredeId: parede.id, x: x + m.x - minX }));
+    const novos = escolhidos.map((m) => {
+      const novo: Modulo = { ...m, id: novoId(), paredeId: parede.id, x: x + m.x - minX };
+      // a caixa que entra encostada numa tamponada já entra tamponada: a lateral do meio sai sozinha
+      const junto = daParede.some(
+        (o) =>
+          o.tipo === 'caixa' &&
+          o.tamponado &&
+          novo.tipo === 'caixa' &&
+          Math.abs(o.y - novo.y) < 1 &&
+          Math.abs(o.altura - novo.altura) < 1 &&
+          (Math.abs(o.x + o.largura - novo.x) <= 1 || Math.abs(novo.x + novo.largura - o.x) <= 1),
+      );
+      return junto ? { ...novo, tamponado: { esquerda: true, direita: true } } : novo;
+    });
     atualizar({ modulos: [...modulos, ...novos] });
     setSelecionado(novos[0].id);
   }

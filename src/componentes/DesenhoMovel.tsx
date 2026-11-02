@@ -12,6 +12,7 @@ import {
   retangulosDasAberturas,
   retangulosDeEncaixe,
   retanguloNaTela,
+  tamponamentosAutomaticos,
   vaosNaCaixa,
 } from '../modulos';
 import { novoId } from '../estado';
@@ -79,7 +80,7 @@ interface Props {
   /** Cria a cópia e devolve o id dela, que passa a ficar selecionada. */
   aoDuplicar?: (m: Modulo) => string;
   aoExcluir?: (m: Modulo) => void;
-  /** Veste a caixa com o tamponamento e devolve o id dele, que passa a ficar selecionado. */
+  /** Liga ou desliga o tamponamento da caixa e das encostadas; devolve o id que fica selecionado. */
   aoTamponar?: (m: Modulo) => string;
   /** Liga ou desliga a pedra em cima do balcão (só visual). */
   aoTrocarPedra?: (m: Modulo) => void;
@@ -433,6 +434,12 @@ export function DesenhoMovel(props: Props) {
             <Figura m={m} r={rets[i]} materiais={materiais} escala={escala} aberto={abertos.includes(m.id)} />
           </g>
         ))}
+        {/* o tamponamento acompanha as caixas, inclusive arrastando; não pega o toque, que é delas */}
+        {tamponamentosAutomaticos(posicionados, materiais, 0).map((t) => (
+          <g key={t.id} style={{ pointerEvents: 'none' }}>
+            <Figura m={t} r={retanguloNaTela(t, materiais)} materiais={materiais} escala={escala} />
+          </g>
+        ))}
         {arraste?.moveu && arraste.guias.x !== null && (
           <line x1={arraste.guias.x} x2={arraste.guias.x} y1={limites.y} y2={limites.y + limites.h} className="guia" />
         )}
@@ -490,7 +497,7 @@ export function DesenhoMovel(props: Props) {
           )}
           {aoTamponar && sel.tipo === 'caixa' && (
             <button type="button" className="btn" onClick={() => setSelecionado(aoTamponar(original(sel.id) ?? sel))}>
-              Tamponar
+              {sel.tamponado ? 'Tirar tamponamento' : 'Tamponar'}
             </button>
           )}
           {aoExcluir && (

@@ -210,6 +210,28 @@ export function EditorModulo({
             ]}
             aoMudar={(v) => mudar({ travas: v === 'travas' })}
           />
+          {m.tamponado && (
+            <div className="campo">
+              <span>Tamponamento, quando esta caixa for a ponta</span>
+              <div className="opcoes">
+                {(
+                  [
+                    ['esquerda', 'Lado esquerdo'],
+                    ['direita', 'Lado direito'],
+                  ] as const
+                ).map(([k, texto]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    className={m.tamponado?.[k] ? 'ativo' : ''}
+                    onClick={() => m.tamponado && mudar({ tamponado: { ...m.tamponado, [k]: !m.tamponado[k] } })}
+                  >
+                    {texto}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {m.canto && (
             <>
               <Opcoes<'esquerda' | 'direita'>

@@ -28,7 +28,7 @@ import {
   type Material as MaterialCena,
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { arrumacaoDoVao, compartilharLaterais, espessuraDe, ladosDe, larguraFolhaCorrer, TRILHO_CORRER, vaosNaCaixa } from '../modulos';
+import { arrumacaoDoVao, compartilharLaterais, espessuraDe, ladosDe, larguraFolhaCorrer, tamponamentosAutomaticos, TRILHO_CORRER, vaosNaCaixa } from '../modulos';
 import { radianos, tracado } from '../planta';
 import type { Modulo, Parede, Piso, Projeto } from '../types';
 import { fmtMedida } from '../unidades';
@@ -140,7 +140,7 @@ function montarParedeComAberturas(parede: Parede, corParede: MaterialCena, guard
  */
 function montarParede(p: Projeto, daParede: Modulo[], guardar: (m: MaterialCena) => MaterialCena) {
   const { materiais, ajustes: a } = p;
-  const modulos = compartilharLaterais(daParede, materiais);
+  const modulos = [...compartilharLaterais(daParede, materiais), ...tamponamentosAutomaticos(daParede, materiais, a.avancoTamponamento)];
   const grupo = new Group();
   const acabamentos = new Map<string, MeshStandardMaterial>();
   const contorno = guardar(new LineBasicMaterial({ color: 0x5a4632, transparent: true, opacity: 0.35 }));

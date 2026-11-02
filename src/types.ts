@@ -93,6 +93,11 @@ export interface Modulo {
    * com a profundidade do módulo. Duas portas, uma em cada face. "lado" é o canto da parede onde ele fica.
    */
   canto?: { lado: 'esquerda' | 'direita'; outroLado: number };
+  /**
+   * Caixa tamponada: as peças são calculadas sozinhas, só nas pontas das caixas encostadas.
+   * Aqui fica de que lado a caixa aceita a lateral, quando ela for a ponta.
+   */
+  tamponado?: { esquerda: boolean; direita: boolean };
   /** Balcão com pedra de mármore em cima: só aparece no desenho e no 3D, não entra no custo. */
   pedra?: boolean;
   /** Caixa de pia: em cima, duas travas (frente e fundo) no lugar do tampo inteiro. */

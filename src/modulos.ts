@@ -64,7 +64,8 @@ export function zonasDeCanto(p: Projeto, paredeId: string): Retangulo[] {
   const zonas: Retangulo[] = [];
   for (const m of p.modulos) {
     const r = retanguloNaTela(m, p.materiais);
-    const fundo = profundidadeTotal(m, p.materiais);
+    // o canto em L entra na parede vizinha com o braço inteiro
+    const fundo = m.canto ? m.canto.outroLado : profundidadeTotal(m, p.materiais);
     const entrada = ocupaNoCanto(fundo, v.giroEntrada);
     const saida = ocupaNoCanto(fundo, v.giroSaida);
     if (anterior && entrada && m.paredeId === anterior.id && r.x + r.w >= anterior.largura - 1) zonas.push({ x: 0, y: r.y, w: entrada, h: r.h });
@@ -144,6 +145,18 @@ export function pecasDoModulo(m: Modulo, materiais: Material[], a: Ajustes): Pec
     if (m.orientacao === 'frente') add(m.nome, m.materialId, A, L, 1, 2, 2);
     if (m.orientacao === 'deitada') add(m.nome, m.materialId, L, P, 1, 1);
     if (m.orientacao === 'lateral') add(m.nome, m.materialId, A, P, 1, 1);
+    return pecas;
+  }
+
+  if (m.canto) {
+    // base e tampo em L saem de um retângulo inteiro da chapa; uma lateral em cada ponta dos braços
+    const B = m.canto.outroLado;
+    add('Lateral', m.materialId, A, P, 2, 1);
+    add('Base em L', m.materialId, L, B, 1, 1);
+    if (m.travas) add('Trava', m.materialId, L - e, Math.min(a.larguraTrava, P), 2, 1);
+    else add('Tampo em L', m.materialId, L, B, 1, 1);
+    add('Porta', m.materialFrenteId, A - 2 * f, L - P - f, 1, 2, 2);
+    add('Porta', m.materialFrenteId, A - 2 * f, B - P - f, 1, 2, 2);
     return pecas;
   }
 
@@ -356,6 +369,7 @@ function resumoInterior(m: Modulo) {
 }
 
 export function descricaoFrente(m: Modulo) {
+  if (m.canto) return 'canto em L, 2 portas';
   if (m.frente === 'basculante-gaveta') return 'basculante e gavetão';
   if (m.frente === 'portas' && m.qtdFrente > 0) return m.qtdFrente === 1 ? '1 porta' : `${m.qtdFrente} portas`;
   if (m.frente === 'gavetas' && m.qtdFrente > 0) return m.qtdFrente === 1 ? '1 gaveta' : `${m.qtdFrente} gavetas`;

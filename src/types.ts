@@ -88,6 +88,11 @@ export interface Modulo {
   frente: Frente;
   qtdFrente: number;
   orientacao: Orientacao;
+  /**
+   * Armário de canto em L: um braço nesta parede (largura) e outro na parede vizinha (outroLado), os dois
+   * com a profundidade do módulo. Duas portas, uma em cada face. "lado" é o canto da parede onde ele fica.
+   */
+  canto?: { lado: 'esquerda' | 'direita'; outroLado: number };
   /** Balcão com pedra de mármore em cima: só aparece no desenho e no 3D, não entra no custo. */
   pedra?: boolean;
   /** Caixa de pia: em cima, duas travas (frente e fundo) no lugar do tampo inteiro. */

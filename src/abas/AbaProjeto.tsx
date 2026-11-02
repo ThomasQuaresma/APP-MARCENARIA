@@ -244,7 +244,9 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
       ? daParede.filter((m) => m.tipo === 'objeto').map((m) => retanguloNaTela(m, materiais))
       : [...solidos.map((m) => retanguloNaTela(m, materiais)), ...lateraisDosTamponamentos(daParede, materiais)];
     const inicio = Math.max(0, ...zonas.filter((z) => z.x === 0).map((z) => z.w));
-    const x = posicaoLivre(bloco, [...obstaculos, ...zonas, ...aberturas], inicio);
+    // o canto em L já entra no canto da parede
+    const sozinho = escolhidos.length === 1 ? escolhidos[0].canto : undefined;
+    const x = sozinho ? (sozinho.lado === 'direita' ? parede.largura - bloco.w : 0) : posicaoLivre(bloco, [...obstaculos, ...zonas, ...aberturas], inicio);
     const novos = escolhidos.map((m) => ({ ...m, id: novoId(), paredeId: parede.id, x: x + m.x - minX }));
     atualizar({ modulos: [...modulos, ...novos] });
     setSelecionado(novos[0].id);

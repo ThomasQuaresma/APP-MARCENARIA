@@ -265,6 +265,28 @@ function montarParede(p: Projeto, daParede: Modulo[], guardar: (m: MaterialCena)
       continue;
     }
 
+    if (m.canto) {
+      // um braço ao longo desta parede e outro saindo dela, junto da parede vizinha
+      const B = m.canto.outroLado;
+      const direita = m.canto.lado === 'direita';
+      const coluna = direita ? x + L - P : x;
+      const eF = espessuraDe(m.materialFrenteId, materiais);
+      const porta = daChapa(m.materialFrenteId);
+      for (const altura of [y, y + A - e]) {
+        peca(x, altura, 0, L, e, P, corpo);
+        peca(coluna, altura, P, P, e, B - P, corpo);
+      }
+      peca(direita ? x : x + L - e, y, 0, e, A, P, corpo);
+      peca(coluna, y, B - e, P, A, e, corpo);
+      peca(direita ? x : coluna + P, y + a.folgaPorta, P, L - P, A - 2 * a.folgaPorta, eF, porta);
+      peca(direita ? coluna - eF : coluna + P, y + a.folgaPorta, P, eF, A - 2 * a.folgaPorta, B - P, porta);
+      if (m.pedra) {
+        peca(x, y + A, 0, L, 30, P + eF + 20, pedra());
+        peca(direita ? coluna - eF - 20 : coluna, y + A, P + eF + 20, P + eF + 20, 30, B - P - eF - 20, pedra());
+      }
+      continue;
+    }
+
     peca(x, y, 0, e, A, P, corpo);
     peca(x + L - e, y, 0, e, A, P, corpo);
     peca(x + e, y, 0, L - 2 * e, e, P, corpo);

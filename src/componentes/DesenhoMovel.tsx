@@ -761,6 +761,17 @@ function Figura({ m, r, materiais, escala, aberto = false }: FiguraProps) {
     if (l.esquerda && !l.doVizinho?.esquerda) detalhes.push(<rect key="le" x={r.x} y={topo} width={e} height={r.h} fill={c} />);
     if (l.direita && !l.doVizinho?.direita) detalhes.push(<rect key="ld" x={r.x + r.w - e} y={topo} width={e} height={r.h} fill={c} />);
     if (l.tampo) detalhes.push(<rect key="tampo" x={r.x} y={topo} width={r.w} height={e} fill={c} />);
+  } else if (m.tipo === 'caixa' && m.canto && !aberto) {
+    // de frente: a porta desta parede e, no canto, o outro braço com a segunda porta de lado
+    fundo = cor(m.materialFrenteId);
+    const direita = m.canto.lado === 'direita';
+    const divisa = direita ? r.x + r.w - m.profundidade : r.x + m.profundidade;
+    const px = direita ? divisa - r.w * 0.06 : divisa + r.w * 0.06;
+    detalhes.push(
+      <rect key="braco" x={direita ? divisa : r.x} y={topo} width={Math.min(m.profundidade, r.w)} height={r.h} className="canto-braco" />,
+      <line key="divisa" x1={divisa} x2={divisa} y1={topo} y2={topo + r.h} />,
+      <line key="puxador" x1={px} x2={px} y1={topo + r.h * 0.44} y2={topo + r.h * 0.56} className="puxador" />,
+    );
   } else if (m.tipo === 'caixa' && m.frente === 'portas' && n > 0 && !aberto) {
     fundo = cor(m.materialFrenteId);
     const dw = r.w / n;

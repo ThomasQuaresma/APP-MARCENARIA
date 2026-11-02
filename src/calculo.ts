@@ -42,7 +42,7 @@ export const precoDe = (p: Projeto, o: Orcamento) => p.precoFinal ?? o.precoSuge
 export const areaDeFrente = (p: Projeto) =>
   p.modulos
     .filter((m) => m.tipo !== 'objeto' && m.tipo !== 'base' && m.tipo !== 'envelope')
-    .reduce((s, m) => s + m.largura * m.altura, 0) / 1e6;
+    .reduce((s, m) => s + (m.largura + (m.canto ? m.canto.outroLado - m.profundidade : 0)) * m.altura, 0) / 1e6;
 
 /** Sem módulos, não sugere nada: o valor fixo só entra quando já tem o que fazer. */
 const sugestao = (area: number, porM2: number, fixo: number) => (area > 0 ? Math.round(area * porM2 + fixo) : 0);

@@ -1521,3 +1521,9 @@ main > section {
   font-size: 1rem;
   background: rgba(255, 255, 255, 0.92);
 }
+
+/* braço do canto em L, visto de frente */
+
+.movel .canto-braco {
+  fill: rgba(60, 40, 20, 0.14);
+}

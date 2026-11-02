@@ -210,9 +210,28 @@ export function EditorModulo({
             ]}
             aoMudar={(v) => mudar({ travas: v === 'travas' })}
           />
+          {m.canto && (
+            <>
+              <Opcoes<'esquerda' | 'direita'>
+                rotulo="Canto da parede"
+                valor={m.canto.lado}
+                opcoes={[
+                  { valor: 'esquerda', texto: 'Esquerda' },
+                  { valor: 'direita', texto: 'Direita' },
+                ]}
+                aoMudar={(lado) => m.canto && mudar({ canto: { ...m.canto, lado } })}
+              />
+              <CampoNumero
+                rotulo="Braço na outra parede"
+                valor={m.canto.outroLado}
+                unidade={u}
+                aoMudar={(outroLado) => m.canto && mudar({ canto: { ...m.canto, outroLado } })}
+              />
+            </>
+          )}
           {m.travas && <p className="dica">Duas travas em cima, na frente e no fundo, com a largura de Ajustes. Entra só o pedaço, não a peça inteira.</p>}
-          {/* são cinco tipos de frente: numa lista cabe melhor no celular do que em botões lado a lado */}
-          <label className="campo">
+          {/* são vários tipos de frente: numa lista cabe melhor no celular do que em botões lado a lado */}
+          {!m.canto && <label className="campo">
             <span>Frente</span>
             <div className="campo-caixa">
               <select
@@ -233,7 +252,7 @@ export function EditorModulo({
                 <option value="basculante-gaveta">Basculante e gavetão</option>
               </select>
             </div>
-          </label>
+          </label>}
           {m.frente === 'basculante' && (
             <p className="dica">Porta que abre para cima. Cada uma soma 2 dobradiças, 2 pistões a gás e 1 puxador.</p>
           )}
@@ -245,7 +264,7 @@ export function EditorModulo({
           )}
           {m.frente !== 'nenhuma' && (
             <>
-              {m.frente !== 'basculante-gaveta' && <CampoNumero
+              {m.frente !== 'basculante-gaveta' && !m.canto && <CampoNumero
                 rotulo={{ portas: 'Quantas portas', correr: 'Quantas folhas', basculante: 'Quantas portas (uma sobre a outra)', gavetas: 'Quantas gavetas' }[m.frente]}
                 valor={m.qtdFrente}
                 inteiro
@@ -265,7 +284,7 @@ export function EditorModulo({
       {m.tipo === 'caixa' && m.frente === 'gavetas' && m.qtdFrente > 0 && (
         <p className="dica">Cada gaveta soma o que está em Ajustes → "Ao colocar uma gaveta, somar" (corrediça, puxador, parafusos).</p>
       )}
-      {m.tipo === 'caixa' && m.frente !== 'gavetas' && m.frente !== 'basculante-gaveta' && <PorDentro m={m} materiais={materiais} unidade={u} mudar={mudar} />}
+      {m.tipo === 'caixa' && !m.canto && m.frente !== 'gavetas' && m.frente !== 'basculante-gaveta' && <PorDentro m={m} materiais={materiais} unidade={u} mudar={mudar} />}
       {m.tipo === 'prateleira' && <p className="dica">Prateleira fixada direto na parede, fora dos armários.</p>}
       {m.tipo === 'base' && <p className="dica">Quadro de rodapé: frente e trás inteiras, travessas entre elas. Coloque os módulos em cima.</p>}
       {m.tipo === 'envelope' && (

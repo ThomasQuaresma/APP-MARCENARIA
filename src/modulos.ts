@@ -299,8 +299,20 @@ export function arrumacaoDoVao(v: Vao, A: number, e: number) {
 export const ladosPadrao: LadosTamponamento = { esquerda: true, direita: true, tampo: true, fundo: false };
 export const ladosDe = (m: Modulo) => m.lados ?? ladosPadrao;
 
-const mesmaLinha = (a: Modulo, b: Modulo) =>
-  a.tipo === 'caixa' && b.tipo === 'caixa' && a.paredeId === b.paredeId && Math.abs(a.y - b.y) < 1 && Math.abs(a.altura - b.altura) < 1;
+/** Vão entre duas caixas que ainda conta como encostadas, em mm: não cabe móvel, e o dedo nem sempre acerta. */
+const VAO_ENCOSTADAS = 50;
+
+/** Balcões precisam ter a mesma altura; aéreos da mesma faixa da parede fecham juntos, mesmo de alturas diferentes. */
+const mesmaLinha = (a: Modulo, b: Modulo) => {
+  if (a.tipo !== 'caixa' || b.tipo !== 'caixa' || a.paredeId !== b.paredeId) return false;
+  const aereos = a.y + a.altura > ALTURA_BALCAO && b.y + b.altura > ALTURA_BALCAO;
+  return aereos ? a.y < b.y + b.altura && b.y < a.y + a.altura : Math.abs(a.y - b.y) < 1 && Math.abs(a.altura - b.altura) < 1;
+};
+
+const encostadas = (a: Modulo, b: Modulo) => a.x <= b.x + b.largura + VAO_ENCOSTADAS && b.x <= a.x + a.largura + VAO_ENCOSTADAS;
+
+/** A caixa entra na mesma sequência da outra? */
+export const naMesmaSequencia = (a: Modulo, b: Modulo) => mesmaLinha(a, b) && encostadas(a, b);
 
 /** A caixa e as encostadas nela, em sequência, na mesma altura. */
 export function linhaDaCaixa(m: Modulo, modulos: Modulo[]): Modulo[] {
@@ -308,8 +320,8 @@ export function linhaDaCaixa(m: Modulo, modulos: Modulo[]): Modulo[] {
   for (let achou = true; achou; ) {
     achou = false;
     for (const o of modulos) {
-      if (linha.includes(o) || !mesmaLinha(o, m)) continue;
-      if (linha.some((c) => Math.abs(c.x + c.largura - o.x) <= 1 || Math.abs(o.x + o.largura - c.x) <= 1)) {
+      if (linha.includes(o)) continue;
+      if (linha.some((c) => naMesmaSequencia(c, o))) {
         linha.push(o);
         achou = true;
       }
@@ -335,6 +347,8 @@ export function tamponamentosAutomaticos(modulos: Modulo[], materiais: Material[
     const ultima = linha[linha.length - 1];
     const materialId = primeira.materialFrenteId || primeira.materialId;
     const e = espessuraDe(materialId, materiais);
+    const baixo = Math.min(...linha.map((c) => c.y));
+    const alto = Math.max(...linha.map((c) => c.y + c.altura));
     // encostada numa caixa de outro tamanho não há lugar para a lateral
     const vizinha = (borda: number, lado: 'esq' | 'dir') =>
       modulos.some(
@@ -342,14 +356,14 @@ export function tamponamentosAutomaticos(modulos: Modulo[], materiais: Material[
           o.tipo === 'caixa' &&
           !linha.includes(o) &&
           o.paredeId === m.paredeId &&
-          o.y < m.y + m.altura &&
-          o.y + o.altura > m.y &&
+          o.y < alto &&
+          o.y + o.altura > baixo &&
           Math.abs((lado === 'esq' ? o.x + o.largura : o.x) - borda) <= 1,
       );
-    const fim = ultima.x + ultima.largura;
+    const fim = Math.max(...linha.map((c) => c.x + c.largura));
     const esquerda = !!primeira.tamponado?.esquerda && !vizinha(primeira.x, 'esq');
     const direita = !!ultima.tamponado?.direita && !vizinha(fim, 'dir');
-    const aereo = m.y + m.altura > ALTURA_BALCAO;
+    const aereo = alto > ALTURA_BALCAO;
     const x = primeira.x - (esquerda ? e : 0);
     resultado.push({
       ...primeira,
@@ -363,8 +377,8 @@ export function tamponamentosAutomaticos(modulos: Modulo[], materiais: Material[
       vaos: [],
       x,
       largura: fim + (direita ? e : 0) - x,
-      y: m.y - (aereo ? e : 0),
-      altura: m.altura + (aereo ? 2 * e : e),
+      y: baixo - (aereo ? e : 0),
+      altura: alto - baixo + (aereo ? 2 * e : e),
       profundidade: Math.max(...linha.map((c) => c.profundidade)) + avanco,
       lados: { esquerda, direita, tampo: true, fundo: false, base: aereo },
       canto: undefined,

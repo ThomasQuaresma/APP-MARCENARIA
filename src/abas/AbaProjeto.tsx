@@ -8,7 +8,7 @@ import { EditorModulo } from '../componentes/editores';
 import { anguloDoCanto, DesenharPlanta, giroDoAngulo, PlantaBaixa } from '../componentes/Planta';
 import { Ver3D } from '../componentes/Ver3D';
 import { novaParede, novoId, quatroParedes, removerDaLista, salvarNaLista } from '../estado';
-import { espessuraDe, lateraisDosTamponamentos, linhaDaCaixa, posicaoLivre, retangulosDasAberturas, retanguloNaTela, sobrepoe, zonasDeCanto } from '../modulos';
+import { espessuraDe, lateraisDosTamponamentos, linhaDaCaixa, naMesmaSequencia, posicaoLivre, retangulosDasAberturas, retanguloNaTela, sobrepoe, zonasDeCanto } from '../modulos';
 import { fecharPlanta, paredesDosPontos, type Ponto } from '../planta';
 import { fmtMedida } from '../unidades';
 import type { Abertura, Ambiente, Modulo, Parede, Piso, Projeto } from '../types';
@@ -154,8 +154,8 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
       return m.id;
     }
     const e = espessuraDe(m.materialFrenteId || m.materialId, materiais);
-    const naLinha = daParede.filter((o) => o.tipo === 'caixa' && Math.abs(o.y - m.y) < 1 && Math.abs(o.altura - m.altura) < 1);
-    const soltos = daParede.filter((o) => o.tipo === 'envelope' && Math.abs(o.y - m.y) < 1);
+    const naLinha = daParede.filter((o) => o.tipo === 'caixa' && o.y < m.y + m.altura && o.y + o.altura > m.y);
+    const soltos = daParede.filter((o) => o.tipo === 'envelope' && o.y < m.y + m.altura && o.y + o.altura > m.y);
     const caixas = [...linhaDaCaixa(m, daParede)];
     const antigos: Modulo[] = [];
     for (let achou = true; achou; ) {
@@ -248,15 +248,7 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
     const novos = escolhidos.map((m) => {
       const novo: Modulo = { ...m, id: novoId(), paredeId: parede.id, x: x + m.x - minX };
       // a caixa que entra encostada numa tamponada já entra tamponada: a lateral do meio sai sozinha
-      const junto = daParede.some(
-        (o) =>
-          o.tipo === 'caixa' &&
-          o.tamponado &&
-          novo.tipo === 'caixa' &&
-          Math.abs(o.y - novo.y) < 1 &&
-          Math.abs(o.altura - novo.altura) < 1 &&
-          (Math.abs(o.x + o.largura - novo.x) <= 1 || Math.abs(novo.x + novo.largura - o.x) <= 1),
-      );
+      const junto = daParede.some((o) => o.tamponado && naMesmaSequencia(o, novo));
       return junto ? { ...novo, tamponado: { esquerda: true, direita: true } } : novo;
     });
     atualizar({ modulos: [...modulos, ...novos] });

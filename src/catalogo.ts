@@ -126,6 +126,7 @@ const categorias: Categoria[] = [
       },
       um('balcao-pia', 'Balcão pia', '🚰', { materialFundoId: null, nome: 'Balcão pia', largura: 1200, altura: 850, profundidade: 550, frente: 'portas', qtdFrente: 2, prateleiras: 1, travas: true }),
       um('balcao-gavetas', 'Balcão gaveteiro', '🗃️', { materialFundoId: null, nome: 'Balcão gaveteiro', largura: 600, altura: 850, profundidade: 550, frente: 'gavetas', qtdFrente: 3, prateleiras: 0 }),
+      um('basculante-gavetao', 'Basculante e gavetão', '🧺', { materialFundoId: null, nome: 'Basculante e gavetão', largura: 600, altura: 850, profundidade: 550, frente: 'basculante-gaveta', qtdFrente: 2, prateleiras: 0 }),
       um('balcao', 'Balcão 2 portas', '🚪', { materialFundoId: null, nome: 'Balcão', largura: 800, altura: 850, profundidade: 550, frente: 'portas', qtdFrente: 2, prateleiras: 1 }),
       um('aereo', 'Aéreo', '⬆️', { nome: 'Aéreo', y: 1500, largura: 800, altura: 700, profundidade: 350 }),
       um('aereo-basculante', 'Aéreo basculante', '⤴️', {

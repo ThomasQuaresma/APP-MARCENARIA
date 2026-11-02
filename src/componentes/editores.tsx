@@ -220,7 +220,8 @@ export function EditorModulo({
                 onChange={(e) => {
                   const frente = e.target.value as Frente;
                   // porta de correr precisa de pelo menos duas folhas para abrir
-                  const qtdFrente = frente === 'correr' ? Math.max(2, m.qtdFrente) : m.qtdFrente || (frente === 'basculante' ? 1 : 2);
+                  const qtdFrente =
+                    frente === 'basculante-gaveta' ? 2 : frente === 'correr' ? Math.max(2, m.qtdFrente) : m.qtdFrente || (frente === 'basculante' ? 1 : 2);
                   mudar({ frente, qtdFrente });
                 }}
               >
@@ -229,6 +230,7 @@ export function EditorModulo({
                 <option value="correr">Portas de correr</option>
                 <option value="basculante">Basculante</option>
                 <option value="gavetas">Gavetas</option>
+                <option value="basculante-gaveta">Basculante e gavetão</option>
               </select>
             </div>
           </label>
@@ -243,12 +245,12 @@ export function EditorModulo({
           )}
           {m.frente !== 'nenhuma' && (
             <>
-              <CampoNumero
+              {m.frente !== 'basculante-gaveta' && <CampoNumero
                 rotulo={{ portas: 'Quantas portas', correr: 'Quantas folhas', basculante: 'Quantas portas (uma sobre a outra)', gavetas: 'Quantas gavetas' }[m.frente]}
                 valor={m.qtdFrente}
                 inteiro
                 aoMudar={(qtdFrente) => mudar({ qtdFrente })}
-              />
+              />}
               <CampoMaterial
                 rotulo="Chapa da frente"
                 valor={m.materialFrenteId}
@@ -263,7 +265,7 @@ export function EditorModulo({
       {m.tipo === 'caixa' && m.frente === 'gavetas' && m.qtdFrente > 0 && (
         <p className="dica">Cada gaveta soma o que está em Ajustes → "Ao colocar uma gaveta, somar" (corrediça, puxador, parafusos).</p>
       )}
-      {m.tipo === 'caixa' && m.frente !== 'gavetas' && <PorDentro m={m} materiais={materiais} unidade={u} mudar={mudar} />}
+      {m.tipo === 'caixa' && m.frente !== 'gavetas' && m.frente !== 'basculante-gaveta' && <PorDentro m={m} materiais={materiais} unidade={u} mudar={mudar} />}
       {m.tipo === 'prateleira' && <p className="dica">Prateleira fixada direto na parede, fora dos armários.</p>}
       {m.tipo === 'base' && <p className="dica">Quadro de rodapé: frente e trás inteiras, travessas entre elas. Coloque os módulos em cima.</p>}
       {m.tipo === 'envelope' && (

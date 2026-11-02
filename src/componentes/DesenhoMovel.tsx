@@ -788,14 +788,14 @@ function Figura({ m, r, materiais, escala, aberto = false }: FiguraProps) {
       const cx = i === 0 ? esquerda + dw - transpasse - 50 : esquerda + transpasse + 30;
       detalhes.push(<rect key={`c${i}`} x={cx} y={topo + r.h * 0.44} width={20} height={r.h * 0.12} rx={10} className="concha" />);
     }
-  } else if (m.tipo === 'caixa' && n > 0 && (m.frente === 'gavetas' || (m.frente === 'basculante' && !aberto))) {
+  } else if (m.tipo === 'caixa' && n > 0 && (m.frente === 'gavetas' || m.frente === 'basculante-gaveta' || (m.frente === 'basculante' && !aberto))) {
     fundo = cor(m.materialFrenteId);
     const dh = r.h / n;
     for (let i = 0; i < n; i++) {
       const cima = topo + i * dh;
       if (i > 0) detalhes.push(<line key={`d${i}`} x1={r.x} x2={r.x + r.w} y1={cima} y2={cima} />);
       // a basculante abre para cima: o puxador fica embaixo da porta
-      const py = m.frente === 'basculante' ? cima + dh * 0.88 : cima + dh / 2;
+      const py = m.frente === 'basculante' || (m.frente === 'basculante-gaveta' && i === 0) ? cima + dh * 0.88 : cima + dh / 2;
       detalhes.push(<line key={`p${i}`} x1={r.x + r.w * 0.38} x2={r.x + r.w * 0.62} y1={py} y2={py} className="puxador" />);
     }
   } else if (m.tipo === 'caixa') {

@@ -29,8 +29,9 @@ export interface PecaBase {
 /**
  * "correr": folhas que correm num trilho duplo na frente da caixa, sobrepostas no transpasse.
  * "basculante": portas que abrem para cima, uma em cima da outra, presas por pistão a gás.
+ * "basculante-gaveta": uma porta basculante em cima e um gavetão embaixo, do mesmo tamanho.
  */
-export type Frente = 'nenhuma' | 'portas' | 'gavetas' | 'correr' | 'basculante';
+export type Frente = 'nenhuma' | 'portas' | 'gavetas' | 'correr' | 'basculante' | 'basculante-gaveta';
 
 /**
  * "objeto" é um equipamento (cuba, TV…): aparece no desenho, mas não entra no corte nem no custo.

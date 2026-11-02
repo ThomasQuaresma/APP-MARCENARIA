@@ -155,7 +155,7 @@ export function pecasDoModulo(m: Modulo, materiais: Material[], a: Ajustes): Pec
   } else add('Base/Tampo', m.materialId, vao, P, 2, 1);
   if (m.materialFundoId) add('Fundo', m.materialFundoId, A - 4, L - 4, 1);
   // com gavetas, a caixa não tem divisão por dentro
-  if (m.frente !== 'gavetas') {
+  if (m.frente !== 'gavetas' && m.frente !== 'basculante-gaveta') {
     const vaos = vaosNaCaixa(m, materiais);
     add('Divisória', m.materialId, A - 2 * e, P, vaos.length - 1, 1);
     // prateleiras da mesma largura saem numa linha só
@@ -176,18 +176,23 @@ export function pecasDoModulo(m: Modulo, materiais: Material[], a: Ajustes): Pec
     add('Porta de correr', m.materialFrenteId, A - a.descontoAlturaCorrer, larguraFolhaCorrer(L, n, a.transpasseCorrer), n, 2, 2);
   }
 
-  if (m.frente === 'gavetas' && n > 0) {
-    const alturaFrente = (A - f * (n + 1)) / n;
-    add('Frente gaveta', m.materialFrenteId, L - 2 * f, alturaFrente, n, 2, 2);
+  if (m.frente === 'basculante-gaveta') {
+    add('Porta basculante', m.materialFrenteId, L - 2 * f, (A - 3 * f) / 2, 1, 2, 2);
+  }
+
+  const gavetas = m.frente === 'basculante-gaveta' ? 1 : m.frente === 'gavetas' ? n : 0;
+  if (gavetas > 0) {
+    const alturaFrente = (A - f * (m.frente === 'basculante-gaveta' ? 3 : gavetas + 1)) / (m.frente === 'basculante-gaveta' ? 2 : gavetas);
+    add('Frente gaveta', m.materialFrenteId, L - 2 * f, alturaFrente, gavetas, 2, 2);
 
     const caixaL = vao - 2 * a.folgaCorredica;
     const caixaA = Math.max(alturaFrente - 40, 60);
     // corrediças são vendidas de 50 em 50 mm
     const caixaP = Math.floor((P - 30) / 50) * 50;
-    add('Lateral gaveta', m.materialId, caixaP, caixaA, 2 * n, 1);
-    add('Contra-frente/traseira', m.materialId, caixaL - 2 * e, caixaA, 2 * n, 1);
+    add('Lateral gaveta', m.materialId, caixaP, caixaA, 2 * gavetas, 1);
+    add('Contra-frente/traseira', m.materialId, caixaL - 2 * e, caixaA, 2 * gavetas, 1);
     // caixa sem fundo continua com a gaveta de chapa fina, quando existe uma cadastrada
-    add('Fundo gaveta', m.materialFundoId ?? materiais.find((x) => x.espessura <= 6)?.id ?? m.materialId, caixaL, caixaP, n);
+    add('Fundo gaveta', m.materialFundoId ?? materiais.find((x) => x.espessura <= 6)?.id ?? m.materialId, caixaL, caixaP, gavetas);
   }
 
   return pecas;
@@ -209,6 +214,14 @@ export function ferragensDoModulo(m: Modulo, a: Ajustes): ItemKit[] {
       { nome: 'Puxador', qtd: n, preco: a.precoPuxador },
     );
   }
+  if (m.frente === 'basculante-gaveta') {
+    itens.push(
+      { nome: 'Dobradiça', qtd: 2, preco: a.precoDobradica },
+      { nome: 'Pistão a gás', qtd: 2, preco: a.precoPistao },
+      { nome: 'Puxador', qtd: 1, preco: a.precoPuxador },
+    );
+    for (const k of a.kitGaveta) if (k.qtd > 0) itens.push({ ...k });
+  }
   if (n > 0 && m.frente === 'gavetas') {
     for (const k of a.kitGaveta) if (k.qtd > 0) itens.push({ ...k, qtd: k.qtd * n });
   }
@@ -217,7 +230,7 @@ export function ferragensDoModulo(m: Modulo, a: Ajustes): ItemKit[] {
     // o trilho vai de ponta a ponta da caixa, em cima e embaixo
     itens.push({ nome: 'Trilho de correr (m)', qtd: Math.round(m.largura / 10) / 100, preco: a.precoTrilho });
   }
-  const cabideiros = m.frente === 'gavetas' ? 0 : m.vaos.filter((v) => v.cabideiro).length;
+  const cabideiros = m.frente === 'gavetas' || m.frente === 'basculante-gaveta' ? 0 : m.vaos.filter((v) => v.cabideiro).length;
   if (cabideiros > 0) itens.push({ nome: 'Cabideiro', qtd: cabideiros, preco: a.precoCabideiro });
   // no orçamento o puxador costuma ficar de fora, inclusive os dos kits
   return a.puxadorNoOrcamento ? itens : itens.filter((i) => !/puxador/i.test(i.nome));
@@ -329,7 +342,7 @@ type Peca = 'esquerda' | 'direita' | 'tampo' | 'fundo';
 const nomesLados: Record<Peca, string> = { esquerda: 'lateral esq.', direita: 'lateral dir.', tampo: 'tampo', fundo: 'fundo' };
 
 function resumoInterior(m: Modulo) {
-  if (m.frente === 'gavetas') return '';
+  if (m.frente === 'gavetas' || m.frente === 'basculante-gaveta') return '';
   const prat = m.vaos.reduce((s, v) => s + v.prateleiras, 0);
   const cab = m.vaos.filter((v) => v.cabideiro).length;
   return [
@@ -343,6 +356,7 @@ function resumoInterior(m: Modulo) {
 }
 
 export function descricaoFrente(m: Modulo) {
+  if (m.frente === 'basculante-gaveta') return 'basculante e gavetão';
   if (m.frente === 'portas' && m.qtdFrente > 0) return m.qtdFrente === 1 ? '1 porta' : `${m.qtdFrente} portas`;
   if (m.frente === 'gavetas' && m.qtdFrente > 0) return m.qtdFrente === 1 ? '1 gaveta' : `${m.qtdFrente} gavetas`;
   if (m.frente === 'correr' && m.qtdFrente > 0) return `${m.qtdFrente} portas de correr`;

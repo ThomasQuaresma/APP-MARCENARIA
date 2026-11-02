@@ -19,7 +19,7 @@ const abas: { id: Aba; texto: string; icone: string }[] = [
 ];
 
 export default function App() {
-  const { orcamentos, geral, projeto, semEspaco, atualizar, abrir, novo, duplicar, excluir } = useOrcamentos();
+  const { orcamentos, geral, projeto, semEspaco, atualizar, abrir, novo, duplicar, excluir, desfazer, podeDesfazer } = useOrcamentos();
   const [biblioteca, setBiblioteca] = useBiblioteca();
   const [aba, setAba] = useState<Aba>('projeto');
   // todo orçamento abre no desenho
@@ -63,6 +63,9 @@ export default function App() {
           Nº {projeto.codigo}
           {projeto.cliente && ` · ${projeto.cliente}`}
         </span>
+        <button className="desfazer" onClick={desfazer} disabled={!podeDesfazer}>
+          ↩ Desfazer
+        </button>
       </header>
       <AvisoAtualizacao />
       <main key={projeto.id}>

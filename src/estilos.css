@@ -1527,3 +1527,22 @@ main > section {
 .movel .canto-braco {
   fill: rgba(60, 40, 20, 0.14);
 }
+
+/* desfazer a última mudança do orçamento aberto */
+
+.topo .desfazer {
+  flex: none;
+  margin-left: auto;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 8px;
+  background: none;
+  color: #fff;
+  font-weight: 600;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.topo .desfazer:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

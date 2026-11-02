@@ -273,10 +273,23 @@ function guardar(p: Projeto, antes: Projeto, geral: Geral): { orcamento: Orcamen
   return { orcamento, geral: { ...geral, materiais, ajustes } };
 }
 
+/** Como o orçamento aberto estava antes de uma mudança, para o botão Desfazer. */
+interface Passo {
+  orcamento: OrcamentoSalvo;
+  geral: Geral;
+}
+
+const MAX_PASSOS = 50;
+/** Mudanças seguidas nesse intervalo (digitando num campo) voltam de uma vez só, em ms. */
+const JUNTAR_PASSOS = 800;
+
 interface Estado {
   orcamentos: OrcamentoSalvo[];
   geral: Geral;
   abertoId: string | null;
+  /** Só vale para o orçamento aberto, enquanto ele estiver aberto; não fica guardado. */
+  passos?: Passo[];
+  ultimoPasso?: number;
 }
 
 function carregar(): Estado {
@@ -346,12 +359,36 @@ export function useOrcamentos() {
         if (depois.situacao === 'rascunho') depois.enviadoEm = null;
         else if (antes.situacao === 'rascunho') depois.enviadoEm = agora();
         const { orcamento, geral } = guardar(depois, antes, e.geral);
-        return { ...e, geral, orcamentos: e.orcamentos.map((o) => (o.id === orcamento.id ? orcamento : o)) };
+        const agoraMs = Date.now();
+        const juntar = e.ultimoPasso !== undefined && agoraMs - e.ultimoPasso < JUNTAR_PASSOS && !!e.passos?.length;
+        return {
+          ...e,
+          geral,
+          orcamentos: e.orcamentos.map((o) => (o.id === orcamento.id ? orcamento : o)),
+          passos: juntar ? e.passos : [...(e.passos ?? []), { orcamento: atual, geral: e.geral }].slice(-MAX_PASSOS),
+          ultimoPasso: agoraMs,
+        };
       }),
     [],
   );
 
-  const abrir = useCallback((id: string | null) => setEstado((e) => ({ ...e, abertoId: id })), []);
+  const desfazer = useCallback(
+    () =>
+      setEstado((e) => {
+        const passo = e.passos?.[e.passos.length - 1];
+        if (!passo) return e;
+        return {
+          ...e,
+          geral: { ...passo.geral, proximoCodigo: e.geral.proximoCodigo },
+          orcamentos: e.orcamentos.map((o) => (o.id === passo.orcamento.id ? passo.orcamento : o)),
+          passos: e.passos?.slice(0, -1),
+          ultimoPasso: undefined,
+        };
+      }),
+    [],
+  );
+
+  const abrir = useCallback((id: string | null) => setEstado((e) => ({ ...e, abertoId: id, passos: [], ultimoPasso: undefined })), []);
 
   const novo = useCallback(
     () =>
@@ -384,7 +421,8 @@ export function useOrcamentos() {
     [],
   );
 
-  return { orcamentos: estado.orcamentos, geral, projeto, semEspaco, atualizar, abrir, novo, duplicar, excluir };
+  const podeDesfazer = !!estado.passos?.length;
+  return { orcamentos: estado.orcamentos, geral, projeto, semEspaco, atualizar, abrir, novo, duplicar, excluir, desfazer, podeDesfazer };
 }
 
 /** Modelos de módulos salvos pelo marceneiro, reaproveitados entre projetos. */

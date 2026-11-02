@@ -137,7 +137,8 @@ export function pecasDoModulo(m: Modulo, materiais: Material[], a: Ajustes): Pec
     const laterais = Number(l.esquerda && !l.doVizinho?.esquerda) + Number(l.direita && !l.doVizinho?.direita);
     add('Lateral tamponamento', m.materialId, A, P, laterais, 1);
     if (l.tampo) add('Tampo tamponamento', m.materialId, entre, P, 1, 1);
-    if (l.fundo) add('Fundo tamponamento (painel)', m.materialId, A - (l.tampo ? e : 0), entre, 1);
+    if (l.base) add('Base tamponamento', m.materialId, entre, P, 1, 1);
+    if (l.fundo) add('Fundo tamponamento (painel)', m.materialId, A - (l.tampo ? e : 0) - (l.base ? e : 0), entre, 1);
     return pecas;
   }
 
@@ -320,7 +321,7 @@ export function linhaDaCaixa(m: Modulo, modulos: Modulo[]): Modulo[] {
 /**
  * Tamponamento das caixas tamponadas, calculado a cada vez: peças só nas pontas de cada sequência de caixas
  * encostadas, sem nada no meio. Mover, excluir ou mudar o tamanho da caixa já acerta as peças.
- * O balcão leva só as laterais; o aéreo leva também o tampo.
+ * O balcão fica em U invertido (laterais e tampo); o aéreo é fechado ao redor (laterais, tampo e base).
  */
 export function tamponamentosAutomaticos(modulos: Modulo[], materiais: Material[], avanco: number): Modulo[] {
   const tamponadas = modulos.filter((m) => m.tipo === 'caixa' && m.tamponado);
@@ -348,8 +349,7 @@ export function tamponamentosAutomaticos(modulos: Modulo[], materiais: Material[
     const fim = ultima.x + ultima.largura;
     const esquerda = !!primeira.tamponado?.esquerda && !vizinha(primeira.x, 'esq');
     const direita = !!ultima.tamponado?.direita && !vizinha(fim, 'dir');
-    const tampo = m.y + m.altura > ALTURA_BALCAO;
-    if (!esquerda && !direita && !tampo) continue;
+    const aereo = m.y + m.altura > ALTURA_BALCAO;
     const x = primeira.x - (esquerda ? e : 0);
     resultado.push({
       ...primeira,
@@ -363,9 +363,10 @@ export function tamponamentosAutomaticos(modulos: Modulo[], materiais: Material[
       vaos: [],
       x,
       largura: fim + (direita ? e : 0) - x,
-      altura: m.altura + (tampo ? e : 0),
+      y: m.y - (aereo ? e : 0),
+      altura: m.altura + (aereo ? 2 * e : e),
       profundidade: Math.max(...linha.map((c) => c.profundidade)) + avanco,
-      lados: { esquerda, direita, tampo, fundo: false },
+      lados: { esquerda, direita, tampo: true, fundo: false, base: aereo },
       canto: undefined,
       pedra: false,
       travas: false,

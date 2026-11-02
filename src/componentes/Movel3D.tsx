@@ -255,7 +255,8 @@ function montarParede(p: Projeto, daParede: Modulo[], guardar: (m: MaterialCena)
       if (l.esquerda && !l.doVizinho?.esquerda) peca(x, y, 0, e, A, P, corpo);
       if (l.direita && !l.doVizinho?.direita) peca(x + L - e, y, 0, e, A, P, corpo);
       if (l.tampo) peca(x + esq, y + A - e, 0, entre, e, P, corpo);
-      if (l.fundo) peca(x + esq, y, 0, entre, A - (l.tampo ? e : 0), e, corpo);
+      if (l.base) peca(x + esq, y, 0, entre, e, P, corpo);
+      if (l.fundo) peca(x + esq, y + (l.base ? e : 0), 0, entre, A - (l.tampo ? e : 0) - (l.base ? e : 0), e, corpo);
       continue;
     }
     if (m.tipo === 'livre') {
@@ -281,8 +282,10 @@ function montarParede(p: Projeto, daParede: Modulo[], guardar: (m: MaterialCena)
       peca(direita ? x : coluna + P, y + a.folgaPorta, P, L - P, A - 2 * a.folgaPorta, eF, porta);
       peca(direita ? coluna - eF : coluna + P, y + a.folgaPorta, P, eF, A - 2 * a.folgaPorta, B - P, porta);
       if (m.pedra) {
-        peca(x, y + A, 0, L, 30, P + eF + 20, pedra());
-        peca(direita ? coluna - eF - 20 : coluna, y + A, P + eF + 20, P + eF + 20, 30, B - P - eF - 20, pedra());
+        // com tamponamento, a pedra fica em cima do tampo dele
+        const yPedra = y + A + (m.tamponado ? eF : 0);
+        peca(x, yPedra, 0, L, 30, P + eF + 20, pedra());
+        peca(direita ? coluna - eF - 20 : coluna, yPedra, P + eF + 20, P + eF + 20, 30, B - P - eF - 20, pedra());
       }
       continue;
     }
@@ -314,7 +317,8 @@ function montarParede(p: Projeto, daParede: Modulo[], guardar: (m: MaterialCena)
     const frente = daChapa(m.materialFrenteId);
     const eFrente = espessuraDe(m.materialFrenteId, materiais);
     // pedra do balcão: do fundo da parede até 2 cm na frente das portas
-    if (m.pedra) peca(x, y + A, -z0, L, 30, z0 + P + eFrente + 20, pedra());
+    // com tamponamento, ela fica em cima do tampo dele
+    if (m.pedra) peca(x, y + A + (m.tamponado ? eFrente : 0), -z0, L, 30, z0 + P + eFrente + 20, pedra());
 
     if (m.frente === 'portas' && n > 0) {
       const dw = (L - f * (n + 1)) / n;

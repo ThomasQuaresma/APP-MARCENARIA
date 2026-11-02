@@ -54,6 +54,8 @@ export interface LadosTamponamento {
   direita: boolean;
   tampo: boolean;
   fundo: boolean;
+  /** Peça de baixo, entre as laterais: fecha o aéreo ao redor. */
+  base?: boolean;
   /**
    * Calculado na hora, nunca guardado: a lateral que cai em cima da lateral de outro tamponamento encostado.
    * Ela não é desenhada nem cobrada (fica a do vizinho), mas o tampo continua parando nela.

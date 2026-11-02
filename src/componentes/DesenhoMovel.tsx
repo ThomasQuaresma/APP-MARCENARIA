@@ -768,6 +768,7 @@ function Figura({ m, r, materiais, escala, aberto = false }: FiguraProps) {
     if (l.esquerda && !l.doVizinho?.esquerda) detalhes.push(<rect key="le" x={r.x} y={topo} width={e} height={r.h} fill={c} />);
     if (l.direita && !l.doVizinho?.direita) detalhes.push(<rect key="ld" x={r.x + r.w - e} y={topo} width={e} height={r.h} fill={c} />);
     if (l.tampo) detalhes.push(<rect key="tampo" x={r.x} y={topo} width={r.w} height={e} fill={c} />);
+    if (l.base) detalhes.push(<rect key="base" x={r.x} y={topo + r.h - e} width={r.w} height={e} fill={c} />);
   } else if (m.tipo === 'caixa' && m.canto && !aberto) {
     // de frente: a porta desta parede e, no canto, o outro braço com a segunda porta de lado
     fundo = cor(m.materialFrenteId);
@@ -831,7 +832,9 @@ function Figura({ m, r, materiais, escala, aberto = false }: FiguraProps) {
   return (
     <>
       {/* a pedra do balcão fica por cima da caixa, com 3 cm */}
-      {m.pedra && m.tipo === 'caixa' && <rect x={r.x} y={topo - 30} width={r.w} height={30} className="pedra" />}
+      {m.pedra && m.tipo === 'caixa' && (
+        <rect x={r.x} y={topo - 30 - (m.tamponado ? espessuraDe(m.materialFrenteId, materiais) : 0)} width={r.w} height={30} className="pedra" />
+      )}
       <rect
         x={r.x}
         y={topo}

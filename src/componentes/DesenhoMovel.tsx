@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type PointerEvent as EventoPonteiro, type ReactNode } from 'react';
 import type { Retangulo } from '../corte';
 import {
+  ALTURA_BALCAO,
   arrumacaoDoVao,
   eixosAjustaveis,
   encaixar,
@@ -482,7 +483,7 @@ export function DesenhoMovel(props: Props) {
             </button>
           )}
           {/* balcão: caixa que termina na altura de bancada */}
-          {aoTrocarPedra && sel.tipo === 'caixa' && sel.y + sel.altura <= 1100 && (
+          {aoTrocarPedra && sel.tipo === 'caixa' && sel.y + sel.altura <= ALTURA_BALCAO && (
             <button type="button" className="btn" onClick={() => aoTrocarPedra(original(sel.id) ?? sel)}>
               {sel.pedra ? 'Tirar pedra' : '+ Pedra'}
             </button>

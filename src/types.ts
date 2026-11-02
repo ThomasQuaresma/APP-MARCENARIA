@@ -115,6 +115,8 @@ export interface Ajustes {
   recuoPrateleira: number;
   precoDobradica: number;
   precoPuxador: number;
+  /** Cobrar os puxadores (também os dos kits) no orçamento. */
+  puxadorNoOrcamento: boolean;
   /** O que entra no orçamento para cada gaveta (corrediça, puxador, parafusos…). */
   kitGaveta: ItemKit[];
   /** Tubo de cabide com os dois suportes. */

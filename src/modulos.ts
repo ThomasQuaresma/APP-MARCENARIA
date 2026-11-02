@@ -28,6 +28,9 @@ export function eixosAjustaveis(m: Modulo) {
   };
 }
 
+/** Caixa que termina até esta altura é de baixo (balcão), em mm. */
+export const ALTURA_BALCAO = 1100;
+
 export const retanguloNaTela =(m: Modulo, materiais: Material[]): Retangulo => ({ x: m.x, y: m.y, ...tamanhoNaTela(m, materiais) });
 
 /** Quanto o módulo avança a partir da parede, contando fundo sobreposto e frentes. */
@@ -183,7 +186,8 @@ export function pecasDoModulo(m: Modulo, materiais: Material[], a: Ajustes): Pec
     const caixaP = Math.floor((P - 30) / 50) * 50;
     add('Lateral gaveta', m.materialId, caixaP, caixaA, 2 * n, 1);
     add('Contra-frente/traseira', m.materialId, caixaL - 2 * e, caixaA, 2 * n, 1);
-    add('Fundo gaveta', m.materialFundoId ?? m.materialId, caixaL, caixaP, n);
+    // caixa sem fundo continua com a gaveta de chapa fina, quando existe uma cadastrada
+    add('Fundo gaveta', m.materialFundoId ?? materiais.find((x) => x.espessura <= 6)?.id ?? m.materialId, caixaL, caixaP, n);
   }
 
   return pecas;
@@ -215,7 +219,8 @@ export function ferragensDoModulo(m: Modulo, a: Ajustes): ItemKit[] {
   }
   const cabideiros = m.frente === 'gavetas' ? 0 : m.vaos.filter((v) => v.cabideiro).length;
   if (cabideiros > 0) itens.push({ nome: 'Cabideiro', qtd: cabideiros, preco: a.precoCabideiro });
-  return itens;
+  // no orçamento o puxador costuma ficar de fora, inclusive os dos kits
+  return a.puxadorNoOrcamento ? itens : itens.filter((i) => !/puxador/i.test(i.nome));
 }
 
 /** Junta os itens de mesmo nome e preço, somando as quantidades. */

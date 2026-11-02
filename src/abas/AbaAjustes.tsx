@@ -174,6 +174,15 @@ export function AbaAjustes({ projeto, atualizar }: Props) {
 
       <section className="cartao">
         <h2>Ferragens</h2>
+        <Opcoes<'nao' | 'sim'>
+          rotulo="Puxadores no orçamento"
+          valor={a.puxadorNoOrcamento ? 'sim' : 'nao'}
+          opcoes={[
+            { valor: 'nao', texto: 'Deixar de fora' },
+            { valor: 'sim', texto: 'Cobrar' },
+          ]}
+          aoMudar={(v) => mudar({ puxadorNoOrcamento: v === 'sim' })}
+        />
         <Linha>
           <CampoNumero rotulo="Dobradiça" valor={a.precoDobradica} sufixo="R$" aoMudar={(precoDobradica) => mudar({ precoDobradica })} />
           <CampoNumero rotulo="Puxador da porta" valor={a.precoPuxador} sufixo="R$" aoMudar={(precoPuxador) => mudar({ precoPuxador })} />

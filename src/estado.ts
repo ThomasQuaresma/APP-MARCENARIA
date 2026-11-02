@@ -62,6 +62,7 @@ export const ajustesPadrao: Ajustes = {
   recuoPrateleira: 20,
   precoDobradica: 8,
   precoPuxador: 15,
+  puxadorNoOrcamento: false,
   precoCabideiro: 30,
   precoPistao: 25,
   kitGaveta: kitGavetaPadrao(35, 15),
@@ -251,7 +252,8 @@ export function abrirOrcamento(o: OrcamentoSalvo, geral: Geral): Projeto {
   return {
     ...migrar(resto),
     materiais: precos?.materiais ?? geral.materiais,
-    ajustes: precos ? { ...migrarAjustes(precos.ajustes), ...dadosDaEmpresa(geral.ajustes) } : geral.ajustes,
+    // orçamento enviado antes dessa opção cobrava o puxador: o valor dele não muda
+    ajustes: precos ? { ...migrarAjustes({ puxadorNoOrcamento: true, ...(precos.ajustes as Partial<Ajustes>) }), ...dadosDaEmpresa(geral.ajustes) } : geral.ajustes,
   };
 }
 

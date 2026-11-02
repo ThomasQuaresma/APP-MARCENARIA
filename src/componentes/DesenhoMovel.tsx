@@ -80,6 +80,8 @@ interface Props {
   /** Cria a cópia e devolve o id dela, que passa a ficar selecionada. */
   aoDuplicar?: (m: Modulo) => string;
   aoExcluir?: (m: Modulo) => void;
+  /** Põe o equipamento no meio do móvel em que ele está. */
+  aoCentralizar?: (m: Modulo) => void;
   /** Liga ou desliga o tamponamento da caixa e das encostadas; devolve o id que fica selecionado. */
   aoTamponar?: (m: Modulo) => string;
   /** Liga ou desliga a pedra em cima do balcão (só visual). */
@@ -121,7 +123,7 @@ const comRetanguloAbertura = (a: Abertura, r: Retangulo): Abertura => ({ ...a, x
 const cursorDo = ({ sx, sy }: Canto) => (sx === 0 ? 'ns-resize' : sy === 0 ? 'ew-resize' : sx === sy ? 'nesw-resize' : 'nwse-resize');
 
 export function DesenhoMovel(props: Props) {
-  const { modulos, materiais, parede, zonas = [], unidade: u, aoMudar, aoTocar, aoDuplicar, aoExcluir, aoTamponar, aoTrocarPedra, aoMudarAberturas, aoEditarAbertura } =
+  const { modulos, materiais, parede, zonas = [], unidade: u, aoMudar, aoTocar, aoDuplicar, aoExcluir, aoCentralizar, aoTamponar, aoTrocarPedra, aoMudarAberturas, aoEditarAbertura } =
     props;
   const svg = useRef<SVGSVGElement>(null);
   const idHachura = `hachura-${useId().replace(/:/g, '')}`;
@@ -283,7 +285,26 @@ export function DesenhoMovel(props: Props) {
           y: abertura.tipo === 'janela' ? Math.min(Math.max(0, ret.y), Math.max(0, parede.altura - o.h)) : 0,
         };
       }
-      setArraste({ ...arraste, moveu: true, ret, guias: encaixe.guias });
+      const guias = { ...encaixe.guias };
+      // o equipamento também encaixa no centro dos móveis e da parede, mostrando a linha do meio
+      if (original(arraste.id)?.tipo === 'objeto') {
+        const moveis = modulos.filter((x) => x.tipo !== 'objeto' && x.id !== arraste.id).map((x) => retanguloNaTela(x, materiais));
+        const cx = o.x + dx + o.w / 2;
+        const cy = o.y + dy + o.h / 2;
+        const maisPerto = (valor: number, centros: number[]) => centros.reduce((a, b) => (Math.abs(b - valor) < Math.abs(a - valor) ? b : a), Infinity);
+        const centroX = maisPerto(cx, [parede.largura / 2, ...moveis.map((r) => r.x + r.w / 2)]);
+        const centroY = maisPerto(cy, moveis.map((r) => r.y + r.h / 2));
+        // a borda só ganha do centro quando encaixou e está mais perto
+        if (Math.abs(centroX - cx) < tolerancia && (guias.x === null || Math.abs(centroX - cx) <= Math.abs(ret.x - (o.x + dx)))) {
+          ret = { ...ret, x: centroX - o.w / 2 };
+          guias.x = centroX;
+        }
+        if (Math.abs(centroY - cy) < tolerancia && (guias.y === null || Math.abs(centroY - cy) <= Math.abs(ret.y - (o.y + dy)))) {
+          ret = { ...ret, y: centroY - o.h / 2 };
+          guias.y = centroY;
+        }
+      }
+      setArraste({ ...arraste, moveu: true, ret, guias });
       return;
     }
 
@@ -509,6 +530,11 @@ export function DesenhoMovel(props: Props) {
           {aoDuplicar && (
             <button type="button" className="btn" onClick={() => setSelecionado(aoDuplicar(original(sel.id) ?? sel))}>
               Duplicar
+            </button>
+          )}
+          {aoCentralizar && sel.tipo === 'objeto' && (
+            <button type="button" className="btn" onClick={() => aoCentralizar(original(sel.id) ?? sel)}>
+              Centralizar
             </button>
           )}
           {/* balcão: caixa que termina na altura de bancada */}

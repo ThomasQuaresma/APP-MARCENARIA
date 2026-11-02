@@ -190,6 +190,25 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
     return m.id;
   }
 
+  /**
+   * Centraliza o equipamento na largura: no móvel que está atrás dele (a TV no painel) ou, se não houver,
+   * no mais próximo acima ou abaixo (a cuba no balcão); sem móvel, no meio da parede.
+   */
+  function centralizar(m: Modulo) {
+    const r = retanguloNaTela(m, materiais);
+    const emComum = (a: number, b: number, c: number, d: number) => Math.max(0, Math.min(b, d) - Math.max(a, c));
+    const moveis = daParede.filter((o) => o.tipo !== 'objeto').map((o) => retanguloNaTela(o, materiais));
+    const atras = moveis
+      .map((o) => ({ o, area: emComum(r.x, r.x + r.w, o.x, o.x + o.w) * emComum(r.y, r.y + r.h, o.y, o.y + o.h) }))
+      .filter((c) => c.area > 0)
+      .sort((a, b) => b.area - a.area)[0]?.o;
+    const distancia = (o: typeof r) => Math.max(0, o.y - (r.y + r.h), r.y - (o.y + o.h));
+    const perto = moveis.filter((o) => emComum(r.x, r.x + r.w, o.x, o.x + o.w) > 0).sort((a, b) => distancia(a) - distancia(b))[0];
+    const alvo = atras ?? perto;
+    const centro = alvo ? alvo.x + alvo.w / 2 : parede.largura / 2;
+    atualizar({ modulos: modulos.map((o) => (o.id === m.id ? { ...o, x: Math.round(Math.min(Math.max(centro - r.w / 2, 0), Math.max(0, parede.largura - r.w))) } : o)) });
+  }
+
   /** Liga ou desliga o mármore em cima do balcão: só para mostrar ao cliente, não entra no custo. */
   const trocarPedra = (m: Modulo) => atualizar({ modulos: modulos.map((o) => (o.id === m.id ? { ...o, pedra: !o.pedra } : o)) });
 
@@ -367,6 +386,7 @@ export function AbaProjeto({ projeto, atualizar, biblioteca, setBiblioteca }: Pr
           aoTocar={setEdicao}
           aoDuplicar={duplicar}
           aoExcluir={excluir}
+          aoCentralizar={centralizar}
           aoTamponar={tamponar}
           aoTrocarPedra={trocarPedra}
           aoMudarAberturas={mudarAberturas}
